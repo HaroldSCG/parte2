@@ -1,0 +1,29 @@
+{
+  "name": "proyecto-lab-db",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión Universitaria - Conexión Base de Datos",
+  "main": "server.js",
+  "scripts": {
+    "test": "node test-connection.js",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "msnodesqlv8": "^5.1.1",
+    "mssql": "^10.0.4",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.6"
+  },
+  "keywords": [
+    "database",
+    "sql-server",
+    "university",
+    "student-management"
+  ],
+  "author": "",
+  "license": "ISC"
+}

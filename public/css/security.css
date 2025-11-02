@@ -1,0 +1,172 @@
+/* === Security page layout only. Do not override dashboard modal === */
+
+/* Card and page */
+.security-container{
+  min-height:100vh;
+  background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.security-card{
+  background:#fff;border-radius:15px;
+  box-shadow:0 20px 60px rgba(0,0,0,.15);
+  max-width:500px;width:100%;overflow:hidden;
+  animation:slideIn .5s ease-out;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.security-header{
+  background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%);
+  color:#fff;text-align:center;padding:30px 20px;
+}
+.security-header .icon{font-size:3rem;margin-bottom:15px;opacity:.9}
+.security-header h1{margin:0;font-size:1.8rem;font-weight:600}
+.security-header p{margin:10px 0 0;opacity:.9;font-size:.95rem}
+.security-content{padding:40px 30px}
+
+/* Notice and CTA */
+.warning-message{
+  background:#fef3cd;border:1px solid #fecb68;border-radius:8px;
+  padding:20px;margin-bottom:30px;display:flex;align-items:flex-start;gap:15px;
+}
+.warning-message .icon{color:#d97706;font-size:1.5rem;flex-shrink:0;margin-top:2px}
+.warning-message .content h3{margin:0 0 8px;color:#92400e;font-size:1.1rem;font-weight:600}
+.warning-message .content p{margin:0;color:#92400e;line-height:1.5;font-size:.95rem}
+
+.action-buttons{text-align:center;margin-top:30px}
+.btn-security{
+  background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%);
+  color:#fff;border:none;padding:15px 40px;border-radius:10px;
+  font-size:1rem;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:10px;
+  transition:all .3s ease;text-decoration:none;
+  box-shadow:0 4px 15px rgba(220,38,38,.3);
+}
+.btn-security:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(220,38,38,.4);
+  background:linear-gradient(135deg,#991b1b 0%,#7f1d1d 100%);
+}
+
+.footer-note{
+  text-align:center;margin-top:25px;padding-top:20px;
+  border-top:1px solid #e5e7eb;color:#6b7280;font-size:.85rem;
+}
+
+/* Dark theme (match dashboard: body.dashboard-body.dark-theme …) */
+body.dashboard-body.dark-theme .security-card{background:#1f2937;color:#f9fafb}
+body.dashboard-body.dark-theme .warning-message{background:#451a03;border-color:#92400e}
+body.dashboard-body.dark-theme .footer-note{color:#9ca3af;border-color:#4b5563}
+
+/* === Sistema de Notificaciones Elegantes === */
+.notification-container{
+  position:fixed;top:20px;right:20px;z-index:10000;
+  max-width:400px;pointer-events:none;
+}
+
+.notification{
+  background:#fff;border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+  margin-bottom:15px;padding:20px;
+  display:flex;align-items:flex-start;gap:15px;
+  border-left:4px solid #10b981;
+  animation:slideInNotification 0.4s ease-out;
+  pointer-events:auto;position:relative;
+  overflow:hidden;
+}
+
+.notification.success{border-left-color:#10b981}
+.notification.error{border-left-color:#ef4444}
+.notification.warning{border-left-color:#f59e0b}
+.notification.info{border-left-color:#3b82f6}
+
+.notification .icon{
+  font-size:1.4rem;flex-shrink:0;margin-top:2px;
+}
+.notification.success .icon{color:#10b981}
+.notification.error .icon{color:#ef4444}
+.notification.warning .icon{color:#f59e0b}
+.notification.info .icon{color:#3b82f6}
+
+.notification .content{flex:1;min-width:0}
+.notification .content h4{
+  margin:0 0 5px;font-size:1rem;font-weight:600;
+  color:#1f2937;line-height:1.2;
+}
+.notification .content p{
+  margin:0;font-size:0.9rem;color:#6b7280;
+  line-height:1.4;
+}
+
+.notification .close-btn{
+  position:absolute;top:8px;right:8px;
+  background:none;border:none;cursor:pointer;
+  color:#9ca3af;font-size:1.1rem;
+  width:24px;height:24px;display:flex;
+  align-items:center;justify-content:center;
+  border-radius:50%;transition:all 0.2s ease;
+}
+.notification .close-btn:hover{
+  background:#f3f4f6;color:#374151;
+}
+
+.notification .progress-bar{
+  position:absolute;bottom:0;left:0;right:0;
+  height:3px;background:rgba(0,0,0,0.1);
+}
+.notification .progress-fill{
+  height:100%;background:currentColor;
+  transition:width linear;
+}
+.notification.success .progress-fill{background:#10b981}
+.notification.error .progress-fill{background:#ef4444}
+.notification.warning .progress-fill{background:#f59e0b}
+.notification.info .progress-fill{background:#3b82f6}
+
+@keyframes slideInNotification{
+  from{
+    opacity:0;transform:translateX(100%);
+  }
+  to{
+    opacity:1;transform:translateX(0);
+  }
+}
+
+@keyframes slideOutNotification{
+  from{
+    opacity:1;transform:translateX(0) scale(1);
+  }
+  to{
+    opacity:0;transform:translateX(100%) scale(0.95);
+  }
+}
+
+.notification.hiding{
+  animation:slideOutNotification 0.3s ease-in forwards;
+}
+
+/* Dark theme para notificaciones */
+body.dashboard-body.dark-theme .notification{
+  background:#374151;color:#f9fafb;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+body.dashboard-body.dark-theme .notification .content h4{color:#f9fafb}
+body.dashboard-body.dark-theme .notification .content p{color:#d1d5db}
+body.dashboard-body.dark-theme .notification .close-btn{color:#9ca3af}
+body.dashboard-body.dark-theme .notification .close-btn:hover{
+  background:#4b5563;color:#f3f4f6;
+}
+
+/* Responsive */
+@media (max-width:768px){
+  .security-container{padding:15px}
+  .security-content{padding:30px 20px}
+  .security-header{padding:25px 15px}
+  .btn-security{padding:12px 30px;font-size:.95rem}
+
+  .notification-container{
+    right:15px;left:15px;max-width:none;
+  }
+  .notification{padding:15px;gap:12px}
+  .notification .content h4{font-size:0.95rem}
+  .notification .content p{font-size:0.85rem}
+}

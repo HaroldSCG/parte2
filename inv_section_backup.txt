@@ -1,0 +1,74 @@
+    <section id="inventarioSection" class="content-section">
+      <div class="section-header">
+        <h1>Gestión de Inventario</h1>
+        <p id="inventorySubtitle">Existencias actualizadas y movimientos recientes</p>
+      </div>
+
+      <div class="stats-grid" id="inventoryStats"></div>
+
+      <div class="panel-actions" style="display:flex; justify-content:flex-end; gap:8px; margin:8px 0 16px;">
+        <button class="btn btn-primary btn-sm" id="inventoryNewEntryBtn">
+          <i class="fas fa-arrow-down"></i> Registrar entrada
+        </button>
+        <button class="btn btn-secondary btn-sm" id="inventoryNewExitBtn">
+          <i class="fas fa-arrow-up"></i> Registrar salida
+        </button>
+      </div>
+
+      <div class="two-column-grid">
+        <article class="panel-card">
+          <div class="card-header">
+            <h3>Movimientos recientes</h3>
+          </div>
+          <ul class="timeline" id="inventoryTimeline"></ul>
+        </article>
+
+        <article class="panel-card">
+          <div class="card-header">
+            <h3>Alertas de inventario</h3>
+          </div>
+          <div class="alerts-grid compact" id="inventoryAlerts"></div>
+        </article>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Stock crítico</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="inventoryTable">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categorías</th>
+                <th>Disponible</th>
+                <th>Mínimo</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Bitácora de inventario</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="inventoryMovementsTable">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Referencia</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+

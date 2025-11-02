@@ -1,0 +1,105 @@
+PROYECTO DE LABORATORIO – Parte 2 – 10pts
+
+DESCRIPCIÓN DEL PROBLEMA ESPECÍFICO
+-----------------------------------
+Además de la gestión de productos, categorías, inventario y ventas, la universidad 
+necesita generar reportes gerenciales y operativos que faciliten la toma de decisiones. 
+Actualmente, no existen reportes centralizados, lo que obliga a generar consultas 
+manuales en hojas de cálculo, causando errores y pérdida de tiempo.
+
+El sistema debe extenderse para incluir un módulo de reportes dinámicos que 
+permita a los usuarios autorizados visualizar y exportar información consolidada 
+sobre ventas, inventario y productos.
+
+--------------------------------------------------
+NUEVOS REQUERIMIENTOS DEL SISTEMA
+--------------------------------------------------
+
+1. MÓDULO DE CATEGORÍAS
+   - CRUD de categorías de productos.
+   - Un producto puede pertenecer a varias categorías.
+   - Validación de nombres duplicados.
+
+2. MÓDULO DE PRODUCTOS
+   - CRUD de productos (código, nombre, descripción, precio costo, 
+     precio venta, descuentos, estado).
+   - Asociación de productos a una o varias categorías.
+   - Validación de duplicados (código único).
+
+3. MÓDULO DE INVENTARIO
+   - Registro de entradas y salidas de productos.
+   - Actualización automática de existencias al realizar compras y ventas.
+   - Bitácora de movimientos de inventario.
+
+4. MÓDULO DE VENTAS
+   - Registro de ventas por usuario autenticado.
+   - Cálculo automático de subtotal, descuentos y total.
+   - Validación de existencia suficiente antes de permitir la venta.
+   - Bitácora de ventas.
+
+5. MÓDULO DE REPORTES
+   - Reporte de ventas por rango de fechas, con opción de filtrar por 
+     usuario y categoría.
+   - Reporte de inventario actual (productos con stock crítico, entradas y 
+     salidas).
+   - Reporte de productos más vendidos (top 10).
+   - Reporte de ingresos totales (mensual y anual).
+   - Exportación de reportes a PDF y Excel.
+   - Visualización gráfica (barras, pastel o líneas) para facilitar la 
+     interpretación.
+
+6. SEGURIDAD Y ROLES
+   - Admin → acceso total a reportes, ventas, inventario, productos y 
+     categorías.
+   - Secretaria → acceso únicamente a reportes de ventas e inventario.
+
+--------------------------------------------------
+ENTREGABLES TÉCNICOS (BASE DE DATOS Y APLICACIÓN)
+--------------------------------------------------
+
+1. BASE DE DATOS (SQL SERVER)
+   - Nuevas vistas y procedimientos almacenados para reportes:
+       ▪ sp_ReporteVentasPorFecha (con filtros por rango y usuario)
+       ▪ sp_ReporteInventarioActual (stock actual y movimientos)
+       ▪ sp_ReporteProductosMasVendidos (top N)
+       ▪ sp_ReporteIngresosTotales (mensual/anual)
+   - Optimización con índices en campos clave (fechas, productos, categorías)
+
+2. APLICACIÓN (WEB ASP.NET MVC O ESCRITORIO C# WINFORMS)
+   - Interfaces gráficas para generar reportes con filtros 
+     (rango de fechas, categorías, usuario)
+   - Representación gráfica de resultados (barras, pastel, líneas)
+   - Exportación a PDF y Excel
+   - Validaciones de permisos según rol (admin/secretaria)
+   - Evidencias del funcionamiento (presentación en clase)
+
+--------------------------------------------------
+ENTREGABLES DE DOCUMENTACIÓN DE ANÁLISIS (SCRUM)
+--------------------------------------------------
+
+1. PRODUCT BACKLOG ACTUALIZADO
+   - Historias de usuario para reportes 
+     (Ejemplo: “Como admin quiero ver un reporte de productos más vendidos 
+     para tomar decisiones de compra”).
+
+2. DEFINICIÓN DE CRITERIOS DE ACEPTACIÓN
+   - Los reportes deben poder filtrarse, exportarse y mostrar gráficos 
+     correctamente.
+
+3. SPRINT PLANNING
+   - Planificación de tareas específicas del módulo de reportes 
+     (vistas SQL, SPs, interfaz gráfica, exportación a PDF/Excel, gráficos).
+
+4. TABLERO DE TRABAJO (SCRUM BOARD)
+   - Registro de tareas en columnas: To Do, In Progress, Done.
+
+5. DAILY SCRUM (BITÁCORA DE EQUIPO)
+   - Seguimiento de avances y bloqueos en la implementación de reportes.
+
+6. SPRINT REVIEW
+   - Presentación de reportes generados 
+     (ejemplo: reporte de ventas filtrado por fecha con gráfico de barras).
+
+7. SPRINT RETROSPECTIVE
+   - Documento de análisis de mejoras en la implementación y validación 
+     de reportes.

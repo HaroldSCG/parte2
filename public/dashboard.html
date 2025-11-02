@@ -1,0 +1,1184 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Reportes</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/dashboard-custom.css">
+  <link rel="stylesheet" href="/css/modular-components.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="dashboard-body" data-user-role="">
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="header-left">
+        <div class="logo-dashboard">
+          <i class="fas fa-chart-pie"></i>
+          <span>Panel de Reportes Universitarios</span>
+        </div>
+        <span class="role-badge" id="roleBadge">Panel</span>
+      </div>
+      <div class="header-right">
+        <div class="user-info">
+          <div class="user-avatar">
+            <i class="fas fa-user-tie" id="userAvatar"></i>
+          </div>
+          <div class="user-details">
+            <span class="user-name" id="userName">Usuario</span>
+            <span class="user-role" id="userRole">Rol</span>
+          </div>
+          <div class="user-actions">
+            <button class="dropdown-btn" id="userMenuToggle">
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+              <a href="#" data-action="showProfile">
+                <i class="fas fa-user"></i> Mi Perfil
+              </a>
+              <a href="#" data-action="showChangePassword">
+                <i class="fas fa-key"></i> Cambiar contraseña
+              </a>
+              <a href="#" data-action="toggleTheme">
+                <i class="fas fa-moon" id="themeIcon"></i> <span id="themeText">Tema Oscuro</span>
+              </a>
+              <div class="dropdown-divider"></div>
+              <a href="#" data-action="logout" id="logoutLink">
+                <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <nav class="sidebar-nav">
+      <ul class="nav-menu" id="sidebarMenu"></ul>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    
+
+
+    <section id="reportesSection" class="content-section active">
+      <div class="section-header">
+        <h1 id="reportTitle">Reportes</h1>
+        <p id="reportSubtitle">Filtra resultados por fecha, usuario y categoria. Exporta con un clic.</p>
+      </div>
+
+      <div class="advanced-filters" id="reportFilters"></div>
+
+      <div class="reports-toolbar">
+        <div class="report-summary" id="reportSummary"></div>
+        <div class="report-actions">
+          <button class="btn btn-secondary btn-sm" id="resetFiltersBtn">
+            <i class="fas fa-eraser"></i> Limpiar filtros
+          </button>
+          <button class="btn btn-primary btn-sm" data-export="pdf">
+            <i class="fas fa-file-pdf"></i> Exportar PDF
+          </button>
+          <button class="btn btn-primary btn-sm" data-export="excel">
+            <i class="fas fa-file-excel"></i> Exportar Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Detalle consolidado</h3>
+          <span class="badge badge-success" id="reportBadge">Listo para descargar</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="reportTable">
+            <thead>
+              <tr id="reportTableHead"></tr>
+            </thead>
+            <tbody id="reportTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="insights-grid" id="reportCharts"></div>
+    </section>
+
+    <section id="inventarioSection" class="content-section">
+      <div class="section-header">
+        <h1>Gestión de Inventario</h1>
+        <p id="inventorySubtitle">Existencias actualizadas y movimientos recientes</p>
+      </div>
+
+      <div class="stats-grid" id="inventoryStats"></div>
+
+      <div class="panel-actions" style="display:flex; justify-content:flex-end; gap:8px; margin:8px 0 16px;">
+        <button class="btn btn-primary btn-sm" id="inventoryNewEntryBtn">
+          <i class="fas fa-arrow-down"></i> Registrar entrada
+        </button>
+      </div>
+
+      <div class="two-column-grid">
+        <article class="panel-card">
+          <div class="card-header">
+            <h3>Movimientos recientes</h3>
+          </div>
+          <ul class="timeline" id="inventoryTimeline"></ul>
+        </article>
+
+        <article class="panel-card">
+          <div class="card-header">
+            <h3>Alertas de inventario</h3>
+          </div>
+          <div class="alerts-grid compact" id="inventoryAlerts"></div>
+        </article>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Stock crítico</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="inventoryTable">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categorías</th>
+                <th>Disponible</th>
+                <th>Mínimo</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Bitácora de inventario</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="inventoryMovementsTable">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Referencia</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="table-pagination" id="inventoryMovementsPagination" style="display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
+          <div class="pagination-left" style="display:flex; align-items:center; gap:10px;">
+            <label for="invMovPageSize" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrar</label>
+            <select id="invMovPageSize" class="filter-select" style="min-width:80px;">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
+            <span style="font-size:0.9rem; color:var(--text-muted, #64748b);">por página</span>
+          </div>
+          <div class="pagination-right" style="display:flex; align-items:center; gap:10px;">
+            <span id="invMovPageInfo" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrando 0–0 de 0</span>
+            <div class="pagination-buttons" style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="invMovPrev">
+                <i class="fas fa-chevron-left"></i> Anterior
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="invMovNext">
+                Siguiente <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ventasSection" class="content-section">
+      <div class="section-header">
+        <h1>Seguimiento de Ventas</h1>
+        <p id="salesSubtitle">Resumen comercial por usuario autenticado</p>
+      </div>
+      <!-- Contenido dinámico: esta sección se renderiza desde /js/dashboard-app.js (tabs Facturación/Ventas y Bitácora) -->
+    </section>
+
+    <section id="productosSection" class="content-section">
+      <div class="section-header">
+        <h1>Catalogo de Productos</h1>
+      </div>
+
+      <!-- Se removieron tarjetas de métricas para una vista más limpia -->
+
+      <div class="tabs-container">
+        <div class="tabs-nav">
+          <button class="tab-btn active" id="productsTabBtn">
+            <i class="fas fa-box-open"></i> Productos
+          </button>
+          <button class="tab-btn" id="associationTabBtn">
+            <i class="fas fa-layer-group"></i> Asociación a categorías
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenido: Gestión de productos -->
+      <div id="productsManageContent" class="bitacora-content active">
+        <div class="panel-card">
+          <div class="card-header">
+            <h3>Lista de productos activos</h3>
+            <button class="btn btn-secondary btn-sm" id="productFiltersBtn">
+              <i class="fas fa-filter"></i> Filtros
+            </button>
+            <button class="btn btn-primary btn-sm" id="newProductBtn">
+              <i class="fas fa-plus"></i> Nuevo producto
+            </button>
+          </div>
+        <div class="table-responsive">
+          <table class="data-table" id="productTable">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Categorías</th>
+                <th>Precio costo</th>
+                <th>Precio venta</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="table-pagination" id="productsPagination" style="display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
+          <div class="pagination-left" style="display:flex; align-items:center; gap:10px;">
+            <label for="productsPageSize" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrar</label>
+            <select id="productsPageSize" class="filter-select" style="min-width:80px;">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
+            <span style="font-size:0.9rem; color:var(--text-muted, #64748b);">por página</span>
+          </div>
+          <div class="pagination-right" style="display:flex; align-items:center; gap:10px;">
+            <span id="productsPageInfo" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrando 0–0 de 0</span>
+            <div class="pagination-buttons" style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="productsPrev">
+                <i class="fas fa-chevron-left"></i> Anterior
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="productsNext">
+                Siguiente <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Contenido: Asociación producto-categorías -->
+      <div id="productsAssocContent" class="bitacora-content">
+        <div class="panel-card">
+          <div class="card-header">
+            <h3><i class="fas fa-diagram-project"></i> Asociación producto - categorías</h3>
+          </div>
+          <div class="panel-body" style="padding:16px;">
+            <div class="form-row">
+              <div class="form-group" style="position:relative;">
+                <label for="assocProductInput">Producto (código o nombre)</label>
+                <input type="text" id="assocProductInput" placeholder="Ingresa código o nombre..." autocomplete="off" style="width:100%; padding:12px 16px; border:1px solid #e2e8f0; border-radius:8px;">
+                <div id="assocProductResults" style="position:absolute; left:0; right:0; top:70px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.08); display:none; z-index:50; overflow:hidden;"></div>
+              </div>
+              <div class="form-group">
+                <label>Resumen</label>
+                <input id="assocSummary" type="text" readonly value="Selecciona un producto para ver sus categorías">
+              </div>
+            </div>
+
+            <div class="form-group full-width">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <label style="margin:0;">Categorías</label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input id="assocCategorySearch" type="text" placeholder="Buscar categorías..." style="padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; min-width:240px;">
+                  <button class="btn btn-secondary btn-sm" id="assocCatClear">Limpiar</button>
+                  <button class="btn btn-secondary btn-sm" id="assocCatSelectAll">Seleccionar todo</button>
+                </div>
+              </div>
+              <div id="assocCategoryGrid" style="margin-top:10px; min-height:48px; border:1px solid #e2e8f0; border-radius:8px; padding:8px;"></div>
+              <div id="assocCategoryPager" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px;">
+                <span id="assocCatPageInfo" style="font-size:13px; color:#64748b;">Mostrando 0–0 de 0</span>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="assocCatPrev">
+                    <i class="fas fa-chevron-left"></i> Anterior
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="assocCatNext">
+                    Siguiente <i class="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="message-container" id="assocMessage"></div>
+
+            <div class="panel-actions" style="display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:12px;">
+              <button type="button" class="btn btn-primary" id="assocSaveBtn">
+                <i class="fas fa-save"></i> Guardar asociación
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="categoriasSection" class="content-section">
+      <div class="section-header">
+        <h1>Gestión de Categorías</h1>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Resumen de categorías</h3>
+          <button class="btn btn-primary btn-sm" id="newCategoryBtn">
+            <i class="fas fa-layer-group"></i> Nueva categoría
+          </button>
+        </div>
+        <div class="category-grid" id="categoryGrid"></div>
+        <div class="table-pagination" id="categoriesPagination" style="display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
+          <div class="pagination-left" style="display:flex; align-items:center; gap:10px;">
+            <label for="categoriesPageSize" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrar</label>
+            <select id="categoriesPageSize" class="filter-select" style="min-width:80px;">
+              <option value="6">6</option>
+              <option value="9" selected>9</option>
+              <option value="12">12</option>
+            </select>
+            <span style="font-size:0.9rem; color:var(--text-muted, #64748b);">por página</span>
+          </div>
+          <div class="pagination-right" style="display:flex; align-items:center; gap:10px;">
+            <span id="categoriesPageInfo" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrando 0–0 de 0</span>
+            <div class="pagination-buttons" style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="categoriesPrev">
+                <i class="fas fa-chevron-left"></i> Anterior
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="categoriesNext">
+                Siguiente <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="usuariosSection" class="content-section" style="display:block;">
+      <div class="section-header">
+        <h1>Gestión de Usuarios</h1>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm" data-action="openModal" data-params='{"modal":"addUserModal"}'>
+            <i class="fas fa-user-plus"></i> Agregar Usuario
+          </button>
+          <button class="btn btn-secondary btn-sm" data-action="openModal" data-params='{"modal":"userFiltersModal"}'>
+            <i class="fas fa-filter"></i> Filtros
+          </button>
+        </div>
+      </div>
+
+      <div class="search-filters-container">
+        <div class="enhanced-search-box">
+          <div class="search-input-group">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="adminUserSearchInput" class="search-input" placeholder="Buscar usuario por nombre o email..." autocomplete="off">
+            <button class="search-button" data-action="performUserSearch"><i class="fas fa-search"></i> Buscar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-status" id="userSearchStatus" style="display:none;">
+        <div class="status-content">
+          <i class="fas fa-search"></i>
+          <span id="userSearchStatusText">Mostrando resultados para: ""</span>
+          <button class="clear-search-btn" data-action="clearUserSearchResults"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div class="table-header">
+          <span class="results-count" id="userResultsCount">Total: 0 usuarios</span>
+        </div>
+        <table class="data-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Nombre Completo</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="categoryFormTitle"><i class="fas fa-layer-group"></i> Nueva categoría</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="categoryModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="categoryForm" class="category-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="categoryName">Nombre</label>
+              <input type="text" id="categoryName" placeholder="Nombre de categoría" required>
+            </div>
+            <div class="form-group">
+              <label for="categorySlug">Identificador</label>
+              <input type="text" id="categorySlug" placeholder="Se generará automáticamente" readonly>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="categoryDescription">Descripción</label>
+            <input type="text" id="categoryDescription" placeholder="Describe brevemente la categoría" maxlength="120">
+          </div>
+          <div class="message-container" id="categoryFormMessage"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="categoryModal">Cancelar</button>
+        <button type="submit" class="btn-primary" id="categoryFormSubmit">
+          <i class="fas fa-save"></i> Guardar categoría
+        </button>
+      </div>
+  </div>
+</div>
+
+  <div class="modal-overlay" id="categoryProductsModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-boxes-stacked"></i> Productos de la categoría</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="categoryProductsModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="category-detail-pill">
+          <span class="color-swatch" id="productsCategoryColor"></span>
+          <div>
+            <h3 id="productsCategoryName">Nombre de categoría</h3>
+            <p class="detail-subtitle" id="productsCategoryHelper">Aún no hay productos registrados.</p>
+          </div>
+        </div>
+        <p class="detail-description" id="productsCategoryMessage">
+          A continuación se muestran los productos asociados a esta categoría.
+        </p>
+
+        <div class="table-responsive">
+          <table class="data-table" id="categoryProductsTable">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categorías</th>
+                <th>Precio costo</th>
+                <th>Precio venta</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="categoryProductsBody">
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination" id="categoryProductsPagination" style="display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
+          <div class="pagination-left" style="display:flex; align-items:center; gap:10px;">
+            <label for="categoryProductsPageSize" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrar</label>
+            <select id="categoryProductsPageSize" class="filter-select" style="min-width:80px;">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
+            <span style="font-size:0.9rem; color:var(--text-muted, #64748b);">por página</span>
+          </div>
+          <div class="pagination-right" style="display:flex; align-items:center; gap:10px;">
+            <span id="categoryProductsPageInfo" style="font-size:0.9rem; color:var(--text-muted, #64748b);">Mostrando 0–0 de 0</span>
+            <div class="pagination-buttons" style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="categoryProductsPrev">
+                <i class="fas fa-chevron-left"></i> Anterior
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="categoryProductsNext">
+                Siguiente <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="viewCategoryInProductsBtn">
+          <i class="fas fa-up-right-from-square"></i> Ver en Productos
+        </button>
+        <button type="button" class="btn-primary" data-action="closeModal" data-modal="categoryProductsModal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="categoryDetailModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-circle-info"></i> Detalle de categoría</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="categoryDetailModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body category-detail">
+        <div class="category-detail-pill">
+          <span id="detailCategoryColor" class="color-swatch"></span>
+          <div>
+            <h3 id="detailCategoryName">Nombre categoría</h3>
+            <p id="detailCategoryProducts" class="detail-subtitle">0 productos asociados</p>
+          </div>
+        </div>
+        <p id="detailCategoryDescription" class="detail-description">Descripción de la categoría.</p>
+        <div class="detail-actions">
+          <button type="button" class="btn-secondary" data-category-action="detail-edit">
+            <i class="fas fa-pen"></i> Editar
+          </button>
+          <button type="button" class="btn-secondary" data-category-action="detail-delete">
+            <i class="fas fa-trash"></i> Eliminar
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" data-action="closeModal" data-modal="categoryDetailModal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo producto -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-box-open"></i> Nuevo producto</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="productModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm" class="product-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productName">Nombre</label>
+              <input type="text" id="productName" placeholder="Nombre del producto" required>
+            </div>
+            <div class="form-group">
+              <label for="productCode">Csódigo</label>
+              <input type="text" id="productCode" placeholder="Se generará automáticamente" readonly>
+            </div>
+          </div>
+          <div class="form-group" id="productDescriptionGroup">
+            <label for="productDescription">Descripción</label>
+            <input type="text" id="productDescription" placeholder="Describe brevemente el producto" maxlength="140">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productCost">Precio costo</label>
+              <input type="number" id="productCost" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label for="productPrice">Precio venta</label>
+              <input type="number" id="productPrice" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="productDiscountGroup">
+              <label for="productDiscount">Descuento (%)</label>
+              <input type="number" id="productDiscount" min="0" max="100" step="0.01" placeholder="0">
+            </div>
+          </div>
+
+          <!-- Sin categorías en alta: se definen luego en asociación o edición -->
+          <div class="message-container" id="productFormMessage"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="productModal">Cancelar</button>
+        <button type="submit" class="btn-primary" id="productFormSubmit">
+          <i class="fas fa-save"></i> Guardar producto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar producto -->
+  <div class="modal-overlay" id="productEditModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-pen"></i> Editar producto</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="productEditModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="productEditForm" class="product-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productEditName">Nombre</label>
+              <input type="text" id="productEditName" placeholder="Nombre del producto" required>
+            </div>
+            <div class="form-group">
+              <label for="productEditCode">Código</label>
+              <input type="text" id="productEditCode" readonly>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <label style="margin:0;">Categorías</label>
+              <label style="display:inline-flex; align-items:center; gap:8px; font-size:14px; color:#64748b;">
+                <input type="checkbox" id="productEditToggleCats"> Modificar categorías
+              </label>
+            </div>
+
+            <div id="productEditCategorySection" style="display:none; margin-top:10px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <input id="productEditCategorySearch" type="text" placeholder="Buscar categorías..." style="flex:1; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="productEditCatClear">Limpiar</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="productEditCatSelectAll">Seleccionar todo</button>
+              </div>
+              <div id="productEditCategoryList" style="max-height:220px; overflow:auto; border:1px solid #e2e8f0; border-radius:8px; padding:8px;"></div>
+            </div>
+            <div id="productEditCategoryHint" style="color:#64748b; font-size:13px; margin-top:6px;">Mantener categorías actuales.</div>
+            <div id="productEditCurrentCats" style="margin-top:8px;"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productEditCost">Precio costo</label>
+              <input type="number" id="productEditCost" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label for="productEditPrice">Precio venta</label>
+              <input type="number" id="productEditPrice" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="message-container" id="productEditFormMessage"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="productEditModal">Cancelar</button>
+        <button type="submit" class="btn-primary" id="productEditFormSubmit">
+          <i class="fas fa-save"></i> Guardar cambios
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Eliminar producto -->
+  <div class="modal-overlay" id="productDeleteModal">
+    <div class="modal-container small">
+      <div class="modal-header">
+        <h2><i class="fas fa-exclamation-triangle"></i> Eliminar producto</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="productDeleteModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>¿Seguro que deseas eliminar el producto <strong id="deleteProductName"></strong>?</p>
+        <p class="detail-description">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="productDeleteModal">Cancelar</button>
+        <button type="button" class="btn-primary btn-danger" id="deleteProductConfirmBtn">
+          <i class="fas fa-trash"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Filtros de productos -->
+  <div class="modal-overlay" id="productFiltersModal">
+    <div class="modal-container small">
+      <div class="modal-header">
+        <h2><i class="fas fa-filter"></i> Filtros</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="productFiltersModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productFilterCategory">Categoría</label>
+            <select id="productFilterCategory">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="productFilterStatus">Estado</label>
+            <select id="productFilterStatus">
+              <option value="">Todos</option>
+              <option value="En stock">En stock</option>
+              <option value="Bajo stock">Bajo stock</option>
+              <option value="Agotado">Agotado</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="productFilterClear">Limpiar</button>
+        <button type="button" class="btn-primary" id="productFilterApply"><i class="fas fa-check"></i> Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Entrada de productos -->
+  <div class="modal-overlay" id="inventoryEntryModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-arrow-down"></i> Registrar entrada</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="inventoryEntryModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="inventoryEntryForm">
+          <div class="form-row">
+            <div class="form-group" style="position:relative;">
+              <label for="invEntryProdInput">Producto</label>
+              <input type="text" id="invEntryProdInput" placeholder="Código o nombre" autocomplete="off">
+              <div id="invEntryProdResults" style="position:absolute; left:0; right:0; top:70px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.08); display:none; z-index:50;"></div>
+            </div>
+            <div class="form-group">
+              <label for="invEntryDate">Fecha y hora</label>
+              <input type="datetime-local" id="invEntryDate" readonly disabled placeholder="Se asigna automáticamente">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invEntryQuantity">Cantidad</label>
+              <input type="number" id="invEntryQuantity" min="1" step="1" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label for="invEntryRef">Referencia / Observación</label>
+              <input type="text" id="invEntryRef" placeholder="Documento, motivo o nota" maxlength="120">
+            </div>
+          </div>
+          <div class="message-container" id="invEntryFormMessage"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="inventoryEntryModal">Cancelar</button>
+        <button type="submit" class="btn-primary" id="invEntryFormSubmit"><i class="fas fa-check"></i> Registrar entrada</button>
+      </div>
+    </div>
+  </div>
+
+  
+        <!-- removed: inventoryExitModal (salida) -->
+        <!--
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="inventoryExitForm">
+          <div class="form-row">
+            <div class="form-group" style="position:relative;">
+              <label for="invExitProdInput">Producto</label>
+              <input type="text" id="invExitProdInput" placeholder="Código o nombre" autocomplete="off">
+              <div id="invExitProdResults" style="position:absolute; left:0; right:0; top:70px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.08); display:none; z-index:50;"></div>
+            </div>
+            <div class="form-group">
+              <label for="invExitDate">Fecha</label>
+              <input type="datetime-local" id="invExitDate">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invExitQuantity">Cantidad</label>
+              <input type="number" id="invExitQuantity" min="1" step="1" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label for="invExitRef">Referencia / Observación</label>
+              <input type="text" id="invExitRef" placeholder="Documento, factura o nota" maxlength="120">
+            </div>
+          </div>
+          <div class="message-container" id="invExitFormMessage"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="inventoryExitModal">Cancelar</button>
+        <button type="submit" class="btn-primary" id="invExitFormSubmit"><i class="fas fa-check"></i> Registrar salida</button>
+      </div>
+    </div>
+  </div>
+
+  -->
+  <div class="modal-overlay" id="categoryDeleteModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-exclamation-triangle"></i> Eliminar categoría</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="categoryDeleteModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>¿Seguro que deseas eliminar la categoría <strong id="deleteCategoryName"></strong>? Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="categoryDeleteModal">Cancelar</button>
+        <button type="button" class="btn-primary btn-danger" id="deleteConfirmBtn">
+          <i class="fas fa-trash"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <button class="mobile-menu-toggle" id="mobileMenuToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-user"></i> Mi Perfil</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="profileModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="profile-section">
+          <h3>Información personal</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="profileNombres">Nombres</label>
+              <input type="text" id="profileNombres">
+            </div>
+            <div class="form-group">
+              <label for="profileApellidos">Apellidos</label>
+              <input type="text" id="profileApellidos">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="profileEmail">Correo electrónico</label>
+              <input type="email" id="profileEmail">
+            </div>
+            <div class="form-group">
+              <label for="profileRole">Rol</label>
+              <input type="text" id="profileRole" readonly>
+            </div>
+          </div>
+          <div class="message-container" id="profileMessageContainer"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="profileModal">Cerrar</button>
+        <button type="button" class="btn-primary" data-action="saveProfile">
+          <i class="fas fa-save"></i> Actualizar datos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="changePasswordModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-key"></i> Cambiar Contraseña</h2>
+        <button class="modal-close" data-action="closeModal" data-modal="changePasswordModal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form class="password-form" id="changePasswordForm">
+          <div class="form-group">
+            <label for="currentPassword">Contraseña actual</label>
+            <div class="input-wrapper">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="currentPassword" placeholder="Contraseña actual" required>
+              <button type="button" class="toggle-password" data-toggle="currentPassword" data-icon="currentPasswordIcon">
+                <i class="fas fa-eye" id="currentPasswordIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="newPassword">Nueva contraseña</label>
+            <div class="input-wrapper">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="newPassword" placeholder="Nueva contraseña" required>
+              <button type="button" class="toggle-password" data-toggle="newPassword" data-icon="newPasswordIcon">
+                <i class="fas fa-eye" id="newPasswordIcon"></i>
+              </button>
+            </div>
+            <div class="password-strength">
+              <div class="strength-bar">
+                <div class="strength-fill" id="strengthFill"></div>
+              </div>
+              <span class="strength-text" id="strengthText">Fortaleza de la contraseña</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="confirmPassword">Confirmar contraseña</label>
+            <div class="input-wrapper">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="confirmPassword" placeholder="Confirma la nueva contraseña" required>
+              <button type="button" class="toggle-password" data-toggle="confirmPassword" data-icon="confirmPasswordIcon">
+                <i class="fas fa-eye" id="confirmPasswordIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="password-requirements">
+            <h4><i class="fas fa-shield-alt"></i> Requisitos</h4>
+            <ul>
+              <li id="req-length"><i class="fas fa-times"></i> Al menos 8 caracteres</li>
+              <li id="req-uppercase"><i class="fas fa-times"></i> Una letra mayúscula</li>
+              <li id="req-lowercase"><i class="fas fa-times"></i> Una letra minúscula</li>
+              <li id="req-number"><i class="fas fa-times"></i> Un número</li>
+              <li id="req-symbol"><i class="fas fa-times"></i> Un símbolo especial</li>
+            </ul>
+          </div>
+          <div class="message-container" id="passwordMessageContainer"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-modal="changePasswordModal">Cancelar</button>
+        <button type="button" class="btn-primary" data-action="changePassword">
+          <i class="fas fa-key"></i> Actualizar contraseña
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Modales Gestión de Usuarios -->
+  <div class="modal-overlay" id="addUserModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-user-plus"></i> Agregar Usuario</h2>
+        <button class="modal-close" data-action="closeModal" data-params='{"modal":"addUserModal"}'>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form class="user-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newUserNombres">Nombres</label>
+              <input type="text" id="newUserNombres" placeholder="Nombres del usuario" required>
+            </div>
+            <div class="form-group">
+              <label for="newUserApellido">Apellido</label>
+              <input type="text" id="newUserApellido" placeholder="Apellido del usuario" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newUserEmail">Email</label>
+              <input type="email" id="newUserEmail" placeholder="correo@universidad.edu" required>
+            </div>
+            <div class="form-group">
+              <label for="newUserRol">Rol</label>
+              <select id="newUserRol" required>
+                <option value="">Seleccionar rol</option>
+                <option value="admin">Administrador</option>
+                <option value="secretaria">Secretaria</option>
+              </select>
+            </div>
+          </div>
+          <div class="message-container" id="userMessageContainer"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-params='{"modal":"addUserModal"}'>Cancelar</button>
+        <button type="button" class="btn-primary" data-action="addUser" id="addUserBtn"><i class="fas fa-save"></i> Crear Usuario</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="viewUserModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-user"></i> Información del Usuario</h2>
+        <button class="modal-close" data-action="closeModal" data-params='{"modal":"viewUserModal"}'>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="profile-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre</label>
+              <span id="viewUserNombre" class="view-field"></span>
+            </div>
+            <div class="form-group">
+              <label>Apellido</label>
+              <span id="viewUserApellido" class="view-field"></span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Rol</label>
+              <div id="viewUserRol"></div>
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <div id="viewUserEstado"></div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Creación</label>
+              <span id="viewUserFechaCreacion" class="view-field"></span>
+            </div>
+            <div class="form-group">
+              <label>Último acceso</label>
+              <span id="viewUserUltimoAcceso" class="view-field"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" data-action="closeModal" data-params='{"modal":"viewUserModal"}'>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editUserModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-user-pen"></i> Editar Usuario</h2>
+        <button class="modal-close" data-action="closeModal" data-params='{"modal":"editUserModal"}'>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="editUserForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editUserNombre">Nombres</label>
+              <input type="text" id="editUserNombre" required>
+            </div>
+            <div class="form-group">
+              <label for="editUserApellido">Apellidos</label>
+              <input type="text" id="editUserApellido" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editUserEmail">Email</label>
+              <input type="email" id="editUserEmail" required>
+            </div>
+            <div class="form-group">
+              <label for="editUserRol">Rol</label>
+              <select id="editUserRol" required>
+                <option value="admin">Administrador</option>
+                <option value="secretaria">Secretaria</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editUserEstado">Estado</label>
+              <select id="editUserEstado" required>
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+                <option value="suspendido">Suspendido</option>
+              </select>
+            </div>
+          </div>
+          <div class="message-container" id="editUserMessageContainer"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-params='{"modal":"editUserModal"}'>Cancelar</button>
+        <button type="button" class="btn-primary" data-action="updateUser" id="updateUserBtn">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="userFiltersModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fas fa-filter"></i> Filtrar Usuarios</h2>
+        <button class="modal-close" data-action="closeModal" data-params='{"modal":"userFiltersModal"}'>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modalFilterRol">Rol</label>
+            <select id="modalFilterRol" class="form-control">
+              <option value="">Todos</option>
+              <option value="admin">Administrador</option>
+              <option value="secretaria">Secretaria</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="modalFilterEstado">Estado</label>
+            <select id="modalFilterEstado" class="form-control">
+              <option value="">Todos</option>
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+              <option value="suspendido">Suspendido</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="clearUserFiltersModal"><i class="fas fa-eraser"></i> Limpiar</button>
+        <button type="button" class="btn-primary" data-action="applyUserFiltersModal"><i class="fas fa-filter"></i> Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="passwordGeneratedModal">
+    <div class="modal-container password-generated-modal">
+      <div class="modal-header">
+        <h2><i class="fas fa-key"></i> Contraseña Temporal</h2>
+        <button class="modal-close" data-action="closeModal" data-params='{"modal":"passwordGeneratedModal"}'>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Usuario creado: <strong id="generatedUserName"></strong></p>
+        <div class="password-display-modern">
+          <input type="text" id="generatedPassword" readonly class="password-input-display">
+          <button type="button" class="copy-btn-modern" data-action="copyGeneratedPassword" title="Copiar contraseña"><i class="fas fa-copy"></i></button>
+        </div>
+        <div class="password-copied-feedback" id="passwordCopiedFeedback"><i class="fas fa-check"></i> ¡Contraseña copiada!</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" data-action="copyGeneratedPassword"><i class="fas fa-copy"></i> Copiar</button>
+        <button type="button" class="btn-secondary" data-action="closeModal" data-params='{"modal":"passwordGeneratedModal"}'>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-container confirm-modal">
+      <div class="modal-header">
+        <h2><i class="fas fa-question-circle"></i> <span id="confirmTitle">Confirmar</span></h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage">¿Confirmar acción?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-action="closeModal" data-params='{"modal":"confirmModal"}'>Cancelar</button>
+        <button type="button" class="btn-primary" id="confirmBtn">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Favicon para evitar 404 y ruta correcta del JS -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23586AE2'/%3E%3Ctext x='8' y='11' text-anchor='middle' font-size='9' fill='white'%3EPR%3C/text%3E%3C/svg%3E" />
+  <!-- Dependencias para Gestión de Usuarios -->
+  <script src="/js/utils/formatters.js"></script>
+  <script src="/js/utils/validators.js"></script>
+  <script src="/js/utils/passwordGenerator.js"></script>
+  <script src="/js/ApiService.js"></script>
+  <script src="/js/UIManager.js"></script>
+  <script src="/js/UserManager.js"></script>
+  <script src="/js/dashboard-app.js"></script>
+</body>
+</html>
+

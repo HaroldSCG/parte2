@@ -1,0 +1,302 @@
+/* Optimized Login System Styles */
+
+/* CSS Variables for consistency */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --text-dark: #333;
+    --text-medium: #666;
+    --text-light: #888;
+    --border-color: #e1e8ed;
+    --bg-light: #f8f9fa;
+    --error-color: #dc2626;
+    --success-color: #059669;
+    --info-color: #2563eb;
+    --border-radius: 0.75rem;
+    --box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+}
+
+/* Reset */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--primary-gradient);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    overflow: hidden;
+}
+
+/* Login Container */
+.login-container {
+    width: 100%;
+    max-width: 25rem;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(0.625rem);
+    border-radius: 1.25rem;
+    padding: 2rem 1.875rem;
+    box-shadow: var(--box-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Header */
+.login-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.logo {
+    width: 3.75rem;
+    height: 3.75rem;
+    background: var(--primary-gradient);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    box-shadow: 0 0.625rem 1.25rem rgba(102, 126, 234, 0.3);
+}
+
+.logo i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.login-header h1 {
+    color: var(--text-dark);
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+/* Form */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-wrapper i {
+    position: absolute;
+    left: 0.9375rem;
+    color: var(--text-light);
+    z-index: 2;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding: 0.9375rem 3.5rem 0.9375rem 2.8125rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    background: var(--bg-light);
+    transition: var(--transition);
+    outline: none;
+}
+
+.input-wrapper input:focus {
+    border-color: var(--primary-color);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-wrapper input::placeholder {
+    color: #aaa;
+}
+
+/* Toggle Password Button */
+.toggle-password {
+    position: absolute;
+    right: 0.9375rem;
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: var(--transition);
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+}
+
+.toggle-password:hover {
+    color: var(--primary-color);
+}
+
+/* CAPTCHA */
+.captcha-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+/* Messages */
+.message-container {
+    padding: 0.75rem 0.9375rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.25rem;
+    display: none;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.message-container i {
+    margin-right: 0.625rem;
+}
+
+.message-container.error {
+    background: #fee2e2;
+    color: var(--error-color);
+    border: 1px solid #fecaca;
+}
+
+.message-container.success {
+    background: #d1fae5;
+    color: var(--success-color);
+    border: 1px solid #a7f3d0;
+}
+
+.message-container.info {
+    background: #dbeafe;
+    color: var(--info-color);
+    border: 1px solid #bfdbfe;
+}
+
+/* Login Button */
+.login-btn {
+    width: 100%;
+    padding: 0.9375rem;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.625rem 1.25rem rgba(102, 126, 234, 0.3);
+}
+
+/* Forgot Password */
+.forgot-password {
+    text-align: center;
+}
+
+.forgot-password a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    transition: var(--transition);
+}
+
+.forgot-password a:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+}
+
+/* Footer */
+.login-footer {
+    text-align: center;
+    margin-top: 1.875rem;
+}
+
+.login-footer p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.75rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    body {
+        padding: 0.625rem;
+    }
+
+    .login-card {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .login-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .logo {
+        width: 3.125rem;
+        height: 3.125rem;
+    }
+
+    .logo i {
+        font-size: 1.25rem;
+    }
+
+    .input-wrapper input {
+        padding: 0.75rem 3rem 0.75rem 2.5rem;
+        font-size: 0.875rem;
+    }
+
+    .login-btn {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .captcha-container {
+        padding: 0.5rem;
+        overflow: hidden;
+    }
+
+    .g-recaptcha {
+        transform: scale(0.8);
+        transform-origin: center;
+    }
+}

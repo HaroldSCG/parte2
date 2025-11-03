@@ -9,7 +9,7 @@ async function createProducto(req, res) {
       return res.status(409).json({ success: false, message: 'El código de producto ya existe' });
     }
     console.error('createProducto error:', err);
-    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor1', error: err.message });
   }
 }
 
@@ -20,7 +20,7 @@ async function listProductos(req, res) {
     return res.json({ success: true, ...result });
   } catch (err) {
     console.error('listProductos error:', err);
-    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor2' });
   }
 }
 
@@ -33,7 +33,7 @@ async function getProducto(req, res) {
     return res.json({ success: true, product: prod });
   } catch (err) {
     console.error('getProducto error:', err);
-    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor3' });
   }
 }
 
@@ -65,7 +65,7 @@ async function updateProducto(req, res) {
     return res.json({ success: true, message: 'Producto actualizado', product: result });
   } catch (err) {
     console.error('updateProducto error:', err);
-    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor4' });
   }
 }
 

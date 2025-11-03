@@ -32,30 +32,56 @@ async function createProducto({ codigo, nombre, categorias = null, precioCosto, 
   const finalCode = (codigo && typeof codigo === 'string' && codigo.trim()) ? codigo.trim() : generateCode(nombre);
   const p = await getPool();
 
-  const exists = await p.request().input('Codigo', sql.VarChar(50), finalCode)
-    .query('SELECT 1 FROM inv.productos WHERE Codigo = @Codigo');
+  // Verificar si el código ya existe en com.tbProducto
+  const exists = await p.request().input('Codigo', sql.VarChar(30), finalCode)
+    .query('SELECT 1 FROM com.tbProducto WHERE Codigo = @Codigo');
   if (exists.recordset.length > 0) {
     const e = new Error('Código ya existe');
     e.code = 'PRODUCT_CODE_EXISTS';
     throw e;
   }
 
+  // Insertar en com.tbProducto (sin columna Categorias ni Cantidad)
   const req = p.request();
-  req.input('Nombre', sql.VarChar(150), nombre);
-  req.input('Codigo', sql.VarChar(50), finalCode);
-  const cats = Array.isArray(categorias) ? categorias.join(';') : (categorias || null);
-  req.input('Categorias', sql.NVarChar(200), cats);
-  req.input('PrecioCosto', sql.Decimal(18, 2), Number(precioCosto));
-  req.input('PrecioVenta', sql.Decimal(18, 2), Number(precioVenta));
-  req.input('Cantidad', sql.Int, Number(cantidad || 0));
-  await req.query(`
-    INSERT INTO inv.productos (Nombre, Codigo, Categorias, PrecioCosto, PrecioVenta, Cantidad)
-    VALUES (@Nombre, @Codigo, @Categorias, @PrecioCosto, @PrecioVenta, @Cantidad)
+  req.input('Nombre', sql.VarChar(120), nombre);
+  req.input('Codigo', sql.VarChar(30), finalCode);
+  req.input('Descripcion', sql.VarChar(400), null); // Opcional
+  req.input('PrecioCosto', sql.Decimal(10, 2), Number(precioCosto));
+  req.input('PrecioVenta', sql.Decimal(10, 2), Number(precioVenta));
+  req.input('Descuento', sql.Decimal(6, 2), 0);
+  
+  const insertResult = await req.query(`
+    INSERT INTO com.tbProducto (Nombre, Codigo, Descripcion, PrecioCosto, PrecioVenta, Descuento)
+    VALUES (@Nombre, @Codigo, @Descripcion, @PrecioCosto, @PrecioVenta, @Descuento);
+    SELECT SCOPE_IDENTITY() AS IdProducto;
   `);
+  
+  const idProducto = insertResult.recordset[0].IdProducto;
 
-  const row = (await p.request().input('Codigo', sql.VarChar(50), finalCode).query(`
+  // Inicializar stock en com.tbStock
+  const cantidadInicial = Number(cantidad || 0);
+  await p.request()
+    .input('IdProducto', sql.Int, idProducto)
+    .input('Existencia', sql.Int, cantidadInicial)
+    .query('INSERT INTO com.tbStock (IdProducto, Existencia) VALUES (@IdProducto, @Existencia)');
+
+  // Asociar categorías si vienen
+  if (Array.isArray(categorias) && categorias.length > 0) {
+    for (const idCat of categorias) {
+      const catId = parseInt(idCat);
+      if (!isNaN(catId)) {
+        await p.request()
+          .input('IdProducto', sql.Int, idProducto)
+          .input('IdCategoria', sql.Int, catId)
+          .query('INSERT INTO com.tbProductoCategoria (IdProducto, IdCategoria) VALUES (@IdProducto, @IdCategoria)');
+      }
+    }
+  }
+
+  // Obtener el producto creado desde la vista
+  const row = (await p.request().input('Codigo', sql.VarChar(30), finalCode).query(`
     SELECT TOP 1 IdProducto, Nombre, Codigo, Categorias, PrecioCosto, PrecioVenta, Cantidad, Estado
-    FROM inv.productos WHERE Codigo = @Codigo
+    FROM inv.v_productos WHERE Codigo = @Codigo
   `)).recordset[0];
 
   // Bitácora (opcional)
@@ -64,7 +90,7 @@ async function createProducto({ codigo, nombre, categorias = null, precioCosto, 
       .input('Usuario', sql.VarChar(50), usuarioEjecutor || 'sistema')
       .input('IdUsuario', sql.Int, -1)
       .input('Operacion', sql.VarChar(40), 'INSERT')
-      .input('Entidad', sql.VarChar(40), 'inv.productos')
+      .input('Entidad', sql.VarChar(40), 'com.tbProducto')
       .input('ClaveEntidad', sql.VarChar(100), String(row.IdProducto))
       .input('Detalle', sql.NVarChar(4000), `Alta de producto ${row.Codigo} - ${row.Nombre}`)
       .query(`INSERT INTO seg.tbBitacoraTransacciones(Usuario, IdUsuario, Operacion, Entidad, ClaveEntidad, Detalle)
@@ -96,8 +122,9 @@ async function listProductos({ page = 1, limit = 10, search = '', estado = '' })
     params.push({ name: 's', type: sql.VarChar(160), value: `%${String(search).trim()}%` });
   }
   if (estado && String(estado).trim()) {
+    const estadoBit = String(estado).trim() === '1' || String(estado).trim().toLowerCase() === 'true' ? 1 : 0;
     where += ' AND Estado = @e';
-    params.push({ name: 'e', type: sql.VarChar(20), value: String(estado).trim() });
+    params.push({ name: 'e', type: sql.Bit, value: estadoBit });
   }
 
   const view = 'inv.v_productos';
@@ -161,71 +188,95 @@ async function getProductoByCodigo(codigo) {
 async function updateProductoByCodigo({ codigo, nombre, precioCosto, precioVenta, cantidad, categorias }) {
   const p = await getPool();
   const code = String(codigo || '').trim();
-  // Obtener IdProducto
-  const prod = await p.request().input('Codigo', sql.VarChar(50), code)
-    .query('SELECT TOP 1 IdProducto FROM inv.productos WHERE Codigo = @Codigo');
+  
+  // Obtener IdProducto desde com.tbProducto
+  const prod = await p.request().input('Codigo', sql.VarChar(30), code)
+    .query('SELECT TOP 1 IdProducto FROM com.tbProducto WHERE Codigo = @Codigo');
   if (prod.recordset.length === 0) {
     const e = new Error('Producto no encontrado'); e.code = 'NOT_FOUND'; throw e;
   }
   const idProd = prod.recordset[0].IdProducto;
 
-  // Actualizar campos básicos si vienen
+  // Actualizar campos básicos en com.tbProducto
   const setParts = [];
   const reqUpd = p.request();
   reqUpd.input('IdProducto', sql.Int, idProd);
-  if (typeof nombre === 'string') { setParts.push('Nombre = @Nombre'); reqUpd.input('Nombre', sql.VarChar(150), nombre); }
-  if (precioCosto != null) { setParts.push('PrecioCosto = @PrecioCosto'); reqUpd.input('PrecioCosto', sql.Decimal(18,2), Number(precioCosto)); }
-  if (precioVenta != null) { setParts.push('PrecioVenta = @PrecioVenta'); reqUpd.input('PrecioVenta', sql.Decimal(18,2), Number(precioVenta)); }
-  if (cantidad != null) { setParts.push('Cantidad = @Cantidad'); reqUpd.input('Cantidad', sql.Int, Number(cantidad)); }
+  
+  if (typeof nombre === 'string') { 
+    setParts.push('Nombre = @Nombre'); 
+    reqUpd.input('Nombre', sql.VarChar(120), nombre); 
+  }
+  if (precioCosto != null) { 
+    setParts.push('PrecioCosto = @PrecioCosto'); 
+    reqUpd.input('PrecioCosto', sql.Decimal(10, 2), Number(precioCosto)); 
+  }
+  if (precioVenta != null) { 
+    setParts.push('PrecioVenta = @PrecioVenta'); 
+    reqUpd.input('PrecioVenta', sql.Decimal(10, 2), Number(precioVenta)); 
+  }
 
-  // Si vienen categorías, sincronizar relación M:N
-  let finalCats = null;
-  if (Array.isArray(categorias)) {
-    // Mapear nombres a IdCategoria
-    const names = categorias.map(s => s.trim()).filter(Boolean);
-    if (names.length) {
-      const inList = names.map((_, i) => `@N${i}`).join(',');
-      const reqCats = p.request();
-      names.forEach((n, i) => reqCats.input(`N${i}`, sql.VarChar(100), n));
-      const catRows = (await reqCats.query(`SELECT IdCategoria, Nombre FROM inv.categorias WHERE Nombre IN (${inList})`)).recordset;
-      const idMap = new Map(catRows.map(r => [r.Nombre.toLowerCase(), r.IdCategoria]));
-      const desiredIds = new Set(names.map(n => idMap.get(n.toLowerCase())).filter(v => v));
+  if (setParts.length) {
+    await reqUpd.query(`UPDATE com.tbProducto SET ${setParts.join(', ')} WHERE IdProducto = @IdProducto`);
+  }
 
-      // Obtener actuales
-      const currentRows = (await p.request().input('IdProducto', sql.Int, idProd)
-        .query('SELECT IdCategoria FROM inv.producto_categoria WHERE IdProducto = @IdProducto')).recordset;
-      const currentIds = new Set(currentRows.map(r => r.IdCategoria));
-
-      // Inserts
-      for (const idCat of desiredIds) {
-        if (!currentIds.has(idCat)) {
-          await p.request().input('IdProducto', sql.Int, idProd).input('IdCategoria', sql.Int, idCat)
-            .query('INSERT INTO inv.producto_categoria(IdProducto, IdCategoria) VALUES(@IdProducto, @IdCategoria)');
-        }
-      }
-      // Deletes
-      for (const idCat of currentIds) {
-        if (!desiredIds.has(idCat)) {
-          await p.request().input('IdProducto', sql.Int, idProd).input('IdCategoria', sql.Int, idCat)
-            .query('DELETE FROM inv.producto_categoria WHERE IdProducto=@IdProducto AND IdCategoria=@IdCategoria');
-        }
-      }
-      finalCats = names; // Para reflejar en columna de texto
+  // Actualizar cantidad en com.tbStock si viene
+  if (cantidad != null) {
+    const cantidadNum = Number(cantidad);
+    // Verificar si existe el registro en stock
+    const stockExists = await p.request()
+      .input('IdProducto', sql.Int, idProd)
+      .query('SELECT 1 FROM com.tbStock WHERE IdProducto = @IdProducto');
+    
+    if (stockExists.recordset.length > 0) {
+      // Actualizar existente
+      await p.request()
+        .input('IdProducto', sql.Int, idProd)
+        .input('Existencia', sql.Int, cantidadNum)
+        .query('UPDATE com.tbStock SET Existencia = @Existencia, FechaActualizacion = SYSDATETIME() WHERE IdProducto = @IdProducto');
     } else {
-      // Si viene array vacío, limpiar asociaciones
-      await p.request().input('IdProducto', sql.Int, idProd)
-        .query('DELETE FROM inv.producto_categoria WHERE IdProducto=@IdProducto');
-      finalCats = [];
+      // Insertar nuevo registro de stock
+      await p.request()
+        .input('IdProducto', sql.Int, idProd)
+        .input('Existencia', sql.Int, cantidadNum)
+        .query('INSERT INTO com.tbStock (IdProducto, Existencia) VALUES (@IdProducto, @Existencia)');
     }
   }
 
-  // Sincronizar columna de texto Categorias si corresponde
-  if (finalCats) {
-    setParts.push('Categorias = @Categorias');
-    reqUpd.input('Categorias', sql.NVarChar(200), finalCats.join('; '));
-  }
-  if (setParts.length) {
-    await reqUpd.query(`UPDATE inv.productos SET ${setParts.join(', ')} WHERE IdProducto = @IdProducto`);
+  // Sincronizar categorías (relación N:M en com.tbProductoCategoria)
+  if (Array.isArray(categorias)) {
+    // Obtener categorías actuales
+    const currentRows = (await p.request().input('IdProducto', sql.Int, idProd)
+      .query('SELECT IdCategoria FROM com.tbProductoCategoria WHERE IdProducto = @IdProducto')).recordset;
+    const currentIds = new Set(currentRows.map(r => r.IdCategoria));
+
+    // Categorías deseadas (convertir a IDs)
+    const desiredIds = new Set();
+    for (const catId of categorias) {
+      const id = parseInt(catId);
+      if (!isNaN(id)) {
+        desiredIds.add(id);
+      }
+    }
+
+    // Insertar nuevas asociaciones
+    for (const idCat of desiredIds) {
+      if (!currentIds.has(idCat)) {
+        await p.request()
+          .input('IdProducto', sql.Int, idProd)
+          .input('IdCategoria', sql.Int, idCat)
+          .query('INSERT INTO com.tbProductoCategoria (IdProducto, IdCategoria) VALUES (@IdProducto, @IdCategoria)');
+      }
+    }
+
+    // Eliminar asociaciones que ya no están
+    for (const idCat of currentIds) {
+      if (!desiredIds.has(idCat)) {
+        await p.request()
+          .input('IdProducto', sql.Int, idProd)
+          .input('IdCategoria', sql.Int, idCat)
+          .query('DELETE FROM com.tbProductoCategoria WHERE IdProducto = @IdProducto AND IdCategoria = @IdCategoria');
+      }
+    }
   }
 
   // Devolver el producto actualizado desde la vista

@@ -290,15 +290,6 @@
           { code: 'PAP-0718', name: 'Cuaderno profesional', categories: ['Papelera'], cost: 'Q1.60', price: 'Q2.99', status: 'En stock' },
           { code: 'LAB-0045', name: 'Pipeta automtica 10ml', categories: ['Laboratorio'], cost: 'Q28.00', price: 'Q46.50', status: 'Bajo stock' }
         ]
-      },
-      categorias: {
-        list: [
-          { name: 'Laboratorio', products: 52, description: 'Reactivos, material clnico y seguridad.', color: '#3b82f6' },
-          { name: 'Tecnologa', products: 38, description: 'Equipos electrnicos y licencias.', color: '#a855f7' },
-          { name: 'Papelera', products: 24, description: 'Papelera especializada y de oficina.', color: '#10b981' },
-          { name: 'Servicios', products: 18, description: 'Capacitaciones y soporte tcnico.', color: '#f59e0b' },
-          { name: 'Equipamiento', products: 10, description: 'Mobiliario y equipo de laboratorio.', color: '#ef4444' }
-        ]
       }
     },
     secretaria: {
@@ -435,13 +426,25 @@
   const API_ENDPOINTS = {
     userById: id => `/api/usuarios/${id}`,
     updateUser: id => `/api/usuarios/${id}`,
-    changePassword: '/api/usuarios/cambiar-password'
+    changePassword: '/api/usuarios/cambiar-password',
+    categorias: '/api/categorias',
+    categoriaById: id => `/api/categorias/${id}`,
+    productos: '/api/productos',
+    productoById: codigo => `/api/productos/${codigo}`,
+    inventario: '/api/inventario',
+    inventarioMovimientos: '/api/inventario/movimientos',
+    inventarioStock: '/api/inventario/stock',
+    ventas: '/api/ventas',
+    ventaById: id => `/api/ventas/${id}`,
+    reportes: '/api/reportes',
+    reportesVentas: '/api/reportes/ventas',
+    reportesInventario: '/api/reportes/inventario',
+    reportesTopProductos: '/api/reportes/top-productos',
+    reportesIngresos: '/api/reportes/ingresos'
   };
 
-  const initialCategories = (DASHBOARD_DATA.admin.categorias?.list || []).map((item, index) => normalizeCategory(item, index));
-
   let profileState = null;
-  let categoryState = initialCategories.map(category => ({ ...category }));
+  let categoryState = [];
   let categoryFormMode = 'create';
   let categoryTargetId = null;
   let openCategoryMenuId = null;
@@ -725,11 +728,17 @@
     const name = nameRaw || `Categora ${index + 1}`;
     const description = (item.description || item.Descripcion || '').toString();
     const color = (item.color || '#3b82f6').toString();
-    let slug = (item.id || item.slug || '').toString().trim();
+    
+    // Usar IdCategoria del backend como ID principal, o generar slug
+    let slug = '';
+    if (item.IdCategoria) {
+      slug = item.IdCategoria.toString();
+    } else if (item.id || item.slug) {
+      slug = (item.id || item.slug).toString().trim();
+    }
+    
     if (!slug) {
       slug = generateCategorySlug(name, index + 1);
-    } else {
-      slug = generateCategorySlug(slug);
     }
 
     const rawCount = item.productsCount ?? item.products ?? item.total ?? item.cantidad ?? 0;
@@ -947,22 +956,15 @@
     clearCategoryFormMessage();
   }
 
-  function handleCategoryFormSubmit(event) {
+  async function handleCategoryFormSubmit(event) {
     event.preventDefault();
     if (role !== 'admin') return;
 
     const name = document.getElementById('categoryName')?.value?.trim() || '';
     const description = document.getElementById('categoryDescription')?.value?.trim() || '';
-    // color y total de productos ya no son campos del formulario
 
     if (!name) {
       setCategoryFormMessage('error', 'El nombre de la categora es obligatorio.');
-      return;
-    }
-
-    const duplicate = categoryState?.find(category => category.name.toLowerCase() === name.toLowerCase() && category.id !== categoryTargetId);
-    if (duplicate) {
-      setCategoryFormMessage('error', 'Ya existe una categora con ese nombre.');
       return;
     }
 
@@ -972,37 +974,56 @@
 
     setCategoryFormMessage('info', categoryFormMode === 'edit' ? 'Guardando cambios...' : 'Creando categora...');
 
-    if (categoryFormMode === 'edit') {
-      const category = getCategoryById(categoryTargetId);
-      if (!category) {
-        setCategoryFormMessage('error', 'La categora seleccionada ya no existe.');
-        return;
+    try {
+      if (categoryFormMode === 'edit') {
+        // Actualizar categoría existente
+        const category = getCategoryById(categoryTargetId);
+        if (!category) {
+          setCategoryFormMessage('error', 'La categora seleccionada ya no existe.');
+          return;
+        }
+
+        const response = await apiRequest(API_ENDPOINTS.categoriaById(categoryTargetId), {
+          method: 'PUT',
+          body: {
+            nombre: name,
+            descripcion: description
+          }
+        });
+
+        if (response.success) {
+          // Recargar categorías desde API para obtener datos actualizados
+          await loadCategorias();
+          await renderCategorias();
+          showToast('Categora actualizada.', 'success');
+          modalManager.close('categoryModal');
+        } else {
+          setCategoryFormMessage('error', response.message || 'Error al actualizar categoría');
+        }
+      } else {
+        // Crear nueva categoría
+        const response = await apiRequest(API_ENDPOINTS.categorias, {
+          method: 'POST',
+          body: {
+            nombre: name,
+            descripcion: description
+          }
+        });
+
+        if (response.success) {
+          // Recargar categorías desde API
+          await loadCategorias();
+          await renderCategorias();
+          showToast('Categora creada correctamente.', 'success');
+          modalManager.close('categoryModal');
+        } else {
+          setCategoryFormMessage('error', response.message || 'Error al crear categoría');
+        }
       }
-
-      category.name = name;
-      category.description = description;
-      // Mantener color y productosCount existentes (se gestionan en otros flujos)
-
-      renderCategorias();
-      showToast('Categora actualizada.', 'success');
-      modalManager.close('categoryModal');
-      return;
+    } catch (error) {
+      console.error('Error en operación de categoría:', error);
+      setCategoryFormMessage('error', error.message || 'Error en la operación');
     }
-
-    const newId = generateUniqueCategoryId(name);
-    const newCategory = {
-      id: newId,
-      slug: newId,
-      name,
-      description,
-      color: getRandomCategoryColor(),
-      productsCount: 0
-    };
-
-    categoryState.push(newCategory);
-    renderCategorias();
-    showToast('Categora creada correctamente.', 'success');
-    modalManager.close('categoryModal');
   }
 
   function openCategoryProducts(categoryId) {
@@ -1154,20 +1175,35 @@
     modalManager.open('categoryDeleteModal');
   }
 
-  function deleteCategory() {
+  async function deleteCategory() {
     if (!categoryState || !categoryTargetId) return;
     closeCategoryMenu();
+    
     const index = categoryState.findIndex(category => category.id === categoryTargetId);
     if (index === -1) {
       showToast('La categora ya no existe.', 'error');
       return;
     }
 
-    categoryState.splice(index, 1);
-    renderCategorias();
-    modalManager.close('categoryDeleteModal');
-    showToast('Categora eliminada.', 'success');
-    categoryTargetId = null;
+    try {
+      const response = await apiRequest(API_ENDPOINTS.categoriaById(categoryTargetId), {
+        method: 'DELETE'
+      });
+
+      if (response.success) {
+        // Recargar categorías desde API
+        await loadCategorias();
+        await renderCategorias();
+        modalManager.close('categoryDeleteModal');
+        showToast('Categora eliminada.', 'success');
+        categoryTargetId = null;
+      } else {
+        showToast(response.message || 'Error al eliminar categoría', 'error');
+      }
+    } catch (error) {
+      console.error('Error eliminando categoría:', error);
+      showToast(error.message || 'Error al eliminar categoría', 'error');
+    }
   }
 
   function escapeHtml(value) {
@@ -1254,17 +1290,17 @@
   }
 
   function hydrateSections(currentRole) {
-    const data = DASHBOARD_DATA[currentRole];
+    // Ya no usamos DASHBOARD_DATA - cada módulo carga sus datos dinámicamente
     // Renderizar overview solo si existe en el DOM
     if (sections.overview && document.getElementById('overviewStats')) {
-      renderOverview(data.overview);
+      renderOverview();
     }
-    renderReportes(data.reportes);
-    renderInventario(data.inventario);
-    renderVentas(data.ventas);
+    renderReportes();
+    renderInventario();
+    renderVentas();
     if (currentRole === 'admin') {
-      renderProductos(data.productos);
-      renderCategorias(data.categorias);
+      renderProductos();
+      renderCategorias();
     }
   }
 
@@ -1283,7 +1319,11 @@
   // Funciones afectadas:
   // - renderOverview() - Renderizado de vista general
 
-  function renderOverview(data) {
+  function renderOverview() {
+    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización de todos los módulos
+    const data = DASHBOARD_DATA[role]?.overview;
+    if (!data) return;
+
     const statsEl = document.getElementById('overviewStats');
     const modulesEl = document.getElementById('overviewModules');
     const alertsEl = document.getElementById('alertsList');
@@ -1353,7 +1393,10 @@
   // - buildCategoryMixChart() - Gráfica de mix de categorías
   // ============================================================================
 
-  function renderReportes(data) {
+  function renderReportes() {
+    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización
+    const data = DASHBOARD_DATA[role]?.reportes;
+    
     const section = document.getElementById('reportesSection');
     if (!section) return;
 
@@ -1971,7 +2014,9 @@
   // - initInventoryModule() - Inicialización del módulo
   // ============================================================================
 
-  function renderInventario(data) {
+  function renderInventario() {
+    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización
+    const data = DASHBOARD_DATA[role]?.inventario;
     if (!data) return;
     document.getElementById('inventorySubtitle').textContent = data.subtitle || '';
     buildStats(document.getElementById('inventoryStats'), data.stats);
@@ -2238,7 +2283,10 @@
   // - handlePOSCheckout() - Procesar venta
   // ============================================================================
 
-  function renderVentas(data) {
+  function renderVentas() {
+    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización
+    const data = DASHBOARD_DATA[role]?.ventas;
+    
     const section = document.getElementById('ventasSection');
     if (!section) return;
     // Si existe la estructura est1tica (tabla #salesTable), hidratar sin reemplazar todo
@@ -2511,7 +2559,9 @@
   // + 20+ funciones auxiliares para manejo de UI y datos
   // ============================================================================
 
-  function renderProductos(data) {
+  function renderProductos() {
+    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización
+    const data = DASHBOARD_DATA[role]?.productos;
     if (!data) return;
     buildStats(document.getElementById('productStats'), data.stats);
     // La tabla se manejará con paginación desde refreshProductTable()
@@ -2767,14 +2817,36 @@
     });
   }
 
-  function renderCategorias(data) {
+  // ============================================================================
+  // FUNCIÓN: loadCategorias() - Carga categorías desde API
+  // ============================================================================
+  async function loadCategorias() {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.categorias);
+      
+      // El backend devuelve { success: true, data: [...] }
+      if (response.success && Array.isArray(response.data)) {
+        categoryState = response.data.map((item, index) => normalizeCategory(item, index));
+        return { success: true, categorias: categoryState };
+      }
+      
+      throw new Error(response.message || 'Error al cargar categorías');
+    } catch (error) {
+      console.error('Error cargando categorías:', error);
+      showToast(error.message || 'Error al cargar categorías', 'error');
+      categoryState = [];
+      return { success: false, error: error.message };
+    }
+  }
+
+  async function renderCategorias() {
     const grid = document.getElementById('categoryGrid');
     const createBtn = document.getElementById('newCategoryBtn');
     if (!grid) return;
 
+    // Cargar categorías desde API si el estado está vacío
     if (!Array.isArray(categoryState) || categoryState.length === 0) {
-      const base = Array.isArray(data?.list) ? data.list.map((item, index) => normalizeCategory(item, index)) : [...initialCategories];
-      categoryState = base;
+      await loadCategorias();
     }
 
     const isAdmin = role === 'admin';

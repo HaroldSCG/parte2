@@ -500,6 +500,13 @@
     function close(modalId) {
       const modal = document.getElementById(modalId);
       if (!modal) return;
+      
+      // Quitar el foco de cualquier elemento dentro del modal ANTES de establecer aria-hidden
+      if (modal.contains(document.activeElement)) {
+        document.activeElement.blur();
+        document.body.focus();
+      }
+      
       modal.classList.remove('show');
       modal.setAttribute('aria-hidden', 'true');
       active.delete(modalId);
@@ -3523,24 +3530,50 @@
     clearEditProductFormMessage();
     modalManager.open('productEditModal');
     // Inicializar estado del modal para esta edición
-    window.__editProductState = { categories: new Set(), display: new Map(), canon: new Map() };
+    window.__editProductState = { categories: new Set(), display: new Map(), canon: new Map(), idMap: new Map() };
 
-    // Cargar datos reales del backend
-    fetch(`/api/productos/${encodeURIComponent(code)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data?.success || !data.product) throw new Error(data?.message || 'No se pudo obtener el producto');
-        const p = data.product;
+    // Cargar datos reales del backend (producto y categorías)
+    Promise.all([
+      fetch(`/api/productos/${encodeURIComponent(code)}`).then(r => r.json()),
+      fetch('/api/categorias').then(r => r.json())
+    ])
+      .then(([prodData, catData]) => {
+        if (!prodData?.success || !prodData.product) throw new Error(prodData?.message || 'No se pudo obtener el producto');
+        if (!catData?.success || !Array.isArray(catData.data)) throw new Error('No se pudieron cargar las categorías');
+        
+        const p = prodData.product;
         if (nameEl) nameEl.value = p.nombre || '';
         if (costEl) costEl.value = Number(p.precioCosto ?? 0);
         if (priceEl) priceEl.value = Number(p.precioVenta ?? 0);
-        const current = Array.isArray(p.categorias) ? p.categorias : [];
-        const selSet = new Set(current.map(c => (c || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()));
-        // Guardar estado y mapping de display
-        window.__editProductState.categories = selSet;
-        window.__editProductState.display = new Map(current.map(n => [ (n || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(), n ]));
-        renderEditProductCategoriesGrid(selSet);
-        // Pintar chips actuales de forma centralizada
+        
+        // Obtener categorías actuales del producto (array de nombres)
+        const currentNames = Array.isArray(p.categorias) ? p.categorias : [];
+        
+        // Crear mapeo: nombre → id desde las categorías disponibles
+        const nameToIdMap = new Map();
+        catData.data.forEach(cat => {
+          const name = (cat.Nombre || '').toLowerCase().trim();
+          nameToIdMap.set(name, cat.IdCategoria);
+        });
+        
+        // Mapear las categorías actuales del producto a IDs
+        const selectedIds = new Set();
+        currentNames.forEach(nombre => {
+          const normalizedName = (nombre || '').toLowerCase().trim();
+          const id = nameToIdMap.get(normalizedName);
+          if (id) {
+            selectedIds.add(id);
+            window.__editProductState.categories.add(id);
+            window.__editProductState.display.set(id, nombre);
+            window.__editProductState.canon.set(id, nombre);
+            window.__editProductState.idMap.set(id, id);
+          }
+        });
+        
+        // Renderizar grid con las categorías seleccionadas
+        renderEditProductCategoriesGrid(selectedIds, catData.data);
+        
+        // Pintar chips actuales
         if (currentWrap) { syncEditCurrentChips(); }
       })
       .catch(err => {
@@ -3549,49 +3582,104 @@
       });
   }
 
-  function renderEditProductCategoriesGrid(selectedSet = new Set()) {
+  function renderEditProductCategoriesGrid(selectedSet = new Set(), categoriesFromAPI = []) {
     const list = document.getElementById('productEditCategoryList');
     if (!list) return;
-    const categories = (DASHBOARD_DATA.admin?.categorias?.list || []).map(c => c.name);
-    const ALIAS = { tecnologa: 'tecnologia' };
-    const CANON = { tecnologia: 'Tecnologia', laboratorio: 'Laboratorio', papelera: 'Papelera', servicios: 'Servicios', equipamiento: 'Equipamiento' };
+    
+    // Cargar categorías desde API si no se pasaron
+    if (!categoriesFromAPI.length) {
+      list.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-pulse"></i> Cargando categorías...</div>';
+      
+      fetch('/api/categorias')
+        .then(r => r.json())
+        .then(data => {
+          if (!data?.success || !Array.isArray(data.data)) {
+            throw new Error('No se pudieron cargar las categorías');
+          }
+          renderEditProductCategoriesGrid(selectedSet, data.data);
+        })
+        .catch(err => {
+          console.error('Error cargando categorías:', err);
+          list.innerHTML = `<div style="text-align:center; padding:20px; color:#dc2626;">
+            <i class="fas fa-exclamation-triangle"></i> ${err.message || 'Error al cargar categorías'}
+          </div>`;
+        });
+      return;
+    }
+    
+    const categories = categoriesFromAPI
+      .filter(c => c.Activo === 1 || c.Activo === true)
+      .map(c => ({
+        id: c.IdCategoria,
+        name: c.Nombre
+      }));
+    
+    if (!categories.length) {
+      list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No hay categorías disponibles</div>';
+      return;
+    }
+    
+    // Inicializar estado si no existe
+    if (!window.__editProductState) {
+      window.__editProductState = { categories: new Set(), canon: new Map(), display: new Map(), idMap: new Map() };
+    }
+    
     // Grid amigable de chips seleccionables
     list.style.display = 'grid';
     list.style.gridTemplateColumns = 'repeat(auto-fit, minmax(160px, 1fr))';
     list.style.gap = '8px';
-    list.innerHTML = categories.map(name => {
-      const rawKey = (name || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      const key = ALIAS[rawKey] || rawKey; // clave canónica para comparar/guardar
-      const label = CANON[key] || (key.charAt(0).toUpperCase() + key.slice(1));
-      if (!window.__editProductState) window.__editProductState = { categories: new Set(), canon: new Map(), display: new Map() };
-      window.__editProductState.canon.set(key, label);
-      const sel = selectedSet.has(key);
+    
+    list.innerHTML = categories.map(cat => {
+      const id = cat.id;
+      const label = cat.name;
+      
+      // Guardar mapping canónico e id
+      window.__editProductState.canon.set(id, label);
+      window.__editProductState.idMap.set(id, id);
+      
+      const sel = selectedSet.has(id);
+      
       return `
-        <button type="button" class="cat-chip${sel ? ' selected' : ''}" data-cat-name="${label}" data-cat-key="${key}"
-          style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid #e2e8f0; background:${sel ? '#dbeafe' : '#f8fafc'}; color:${sel ? '#1e3a8a' : '#334155'}; font-size:13px; cursor:pointer;">
+        <button type="button" class="cat-chip${sel ? ' selected' : ''}" 
+          data-cat-name="${label}" 
+          data-cat-key="${id}"
+          data-cat-id="${id}"
+          style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid #e2e8f0; background:${sel ? '#dbeafe' : '#f8fafc'}; color:${sel ? '#1e3a8a' : '#334155'}; font-size:13px; cursor:pointer; transition: all 0.2s;">
           <i class="fas fa-check" style="visibility:${sel ? 'visible' : 'hidden'};"></i>
           <span>${label}</span>
         </button>
       `;
     }).join('');
 
-    // Delegacin: toggle visual
+    // Delegación: toggle visual
     list.onclick = (e) => {
       const chip = e.target.closest('.cat-chip');
       if (!chip) return;
+      
       const selected = chip.classList.toggle('selected');
-      chip.querySelector('i')?.style && (chip.querySelector('i').style.visibility = selected ? 'visible' : 'hidden');
+      const icon = chip.querySelector('i');
+      
+      // Animación visual
+      if (icon) icon.style.visibility = selected ? 'visible' : 'hidden';
       chip.style.background = selected ? '#dbeafe' : '#f8fafc';
       chip.style.color = selected ? '#1e3a8a' : '#334155';
       chip.style.borderColor = selected ? '#bfdbfe' : '#e2e8f0';
-      const key = chip.getAttribute('data-cat-key') || '';
+      
+      const id = parseInt(chip.getAttribute('data-cat-id') || chip.getAttribute('data-cat-key'));
       const label = chip.getAttribute('data-cat-name') || '';
-      if (!window.__editProductState) window.__editProductState = { categories: new Set() };
-      if (selected) window.__editProductState.categories.add(key);
-      else window.__editProductState.categories.delete(key);
-      if (!window.__editProductState.display) window.__editProductState.display = new Map();
-      if (selected) window.__editProductState.display.set(key, label);
-      else window.__editProductState.display.delete(key);
+      
+      if (!window.__editProductState) {
+        window.__editProductState = { categories: new Set(), display: new Map(), canon: new Map(), idMap: new Map() };
+      }
+      
+      if (selected) {
+        window.__editProductState.categories.add(id);
+        window.__editProductState.display.set(id, label);
+      } else {
+        window.__editProductState.categories.delete(id);
+        window.__editProductState.display.delete(id);
+      }
+      
       syncEditCurrentChips();
     };
   }
@@ -3605,7 +3693,7 @@
     const wrap = document.getElementById('productEditCurrentCats');
     if (!wrap) return;
     const keys = Array.from(window.__editProductState?.categories || new Set());
-    const names = keys.map(k => (window.__editProductState?.display?.get(k)) || k.charAt(0).toUpperCase() + k.slice(1));
+    const names = keys.map(k => (window.__editProductState?.display?.get(k)) || (window.__editProductState?.canon?.get(k)) || String(k));
     if (!names.length) {
       wrap.innerHTML = '<span style="color:#64748b; font-size:13px;">Sin categorías seleccionadas.</span>';
       return;
@@ -3615,25 +3703,8 @@
         ' <button type="button" class="cat-remove" aria-label="Quitar ' + names[i] + '" title="Quitar">×</button>' +
       '</span>').join('') +
     '</div>';
-    // Delegación para quitar
-    wrap.onclick = (e) => {
-      const btn = e.target.closest('.cat-remove');
-      if (!btn) return;
-      const tag = btn.closest('.tag');
-      const key = tag?.getAttribute('data-cat-key') || '';
-      if (tag) tag.remove();
-      if (key && window.__editProductState) {
-        window.__editProductState.categories.delete(key);
-        window.__editProductState.display?.delete(key);
-        // También deseleccionar en el grid
-        const chip = document.querySelector(`.cat-chip[data-cat-key="${key}"]`);
-        if (chip) {
-          chip.classList.remove('selected');
-          const icon = chip.querySelector('i'); if (icon) icon.style.visibility = 'hidden';
-          chip.style.background = '#f8fafc'; chip.style.color = '#334155'; chip.style.borderColor = '#e2e8f0';
-        }
-      }
-    };
+    
+    // NO agregar onclick aquí - se maneja en enhanceEditCategoryRemovalToast con delegación persistente
   }
 
   function renderEditCurrentCategories(code) {
@@ -3678,17 +3749,61 @@
     const name = document.getElementById('productEditName')?.value?.trim() || '';
     const cost = parseFloat(document.getElementById('productEditCost')?.value || '0');
     const price = parseFloat(document.getElementById('productEditPrice')?.value || '0');
-    const keys = Array.from(window.__editProductState?.categories || new Set());
-    const cats = keys.map(k => (window.__editProductState?.display?.get(k)) || (window.__editProductState?.canon?.get(k)) || (k.charAt(0).toUpperCase() + k.slice(1)));
-    if (!code || !name) { setEditProductFormMessage('error','Faltan datos obligatorios.'); return; }
+    
+    // Solo enviar categorías si el toggle está activado
+    const toggle = document.getElementById('productEditToggleCats');
+    let cats = undefined; // undefined = no modificar categorías en backend
+    
+    if (toggle?.checked) {
+      // Usuario activó "Modificar categorías" - enviar las seleccionadas como IDs
+      const keys = Array.from(window.__editProductState?.categories || new Set());
+      cats = keys.map(k => {
+        // Preferir mapping idMap (numérico) si está disponible
+        const mappedId = window.__editProductState?.idMap?.get(k);
+        if (mappedId != null) return String(mappedId);
+        // Si la key ya es numérica, usarla
+        const tryNum = parseInt(k, 10);
+        if (!isNaN(tryNum)) return String(tryNum);
+        // No se pudo resolver a IdCategoria -> ignorar
+        return null;
+      }).filter(x => x !== null);
+    }
+    
+    if (!code || !name) { 
+      setEditProductFormMessage('error','Faltan datos obligatorios.'); 
+      return; 
+    }
+    
     setEditProductFormMessage('info','Guardando cambios...');
+    
+    const payload = { 
+      nombre: name, 
+      precioCosto: cost, 
+      precioVenta: price 
+    };
+    
+    // SIEMPRE enviar categorias cuando el toggle existe:
+    // - Toggle activado → enviar las categorías del estado
+    // - Toggle desactivado → enviar array vacío para limpiar todas
+    if (toggle) {
+      payload.categorias = toggle.checked ? cats : [];
+    }
+    
+    // Log para debug (quitar después de verificar)
+    console.log('=== DEBUG: Guardando producto ===');
+    console.log('Toggle checked:', toggle?.checked);
+    console.log('Estado de categorías:', window.__editProductState?.categories);
+    console.log('Categorías a enviar:', payload.categorias);
+    console.log('Payload a enviar:', JSON.stringify(payload, null, 2));
+    
     fetch(`/api/productos/${encodeURIComponent(code)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: name, precioCosto: cost, precioVenta: price, categorias: cats })
+      body: JSON.stringify(payload)
     })
     .then(r => r.json())
     .then(data => {
+      console.log('=== DEBUG: Respuesta del servidor ===', data);
       if (!data?.success) throw new Error(data?.message || 'No se pudo actualizar');
       setEditProductFormMessage('success','Producto actualizado.');
       showToast('Producto actualizado correctamente.','success');
@@ -3696,7 +3811,10 @@
       return refreshProductTable();
     })
     .then(() => setTimeout(() => modalManager.close('productEditModal'), 600))
-    .catch(err => setEditProductFormMessage('error', err.message || 'No se pudo actualizar'));
+    .catch(err => {
+      console.error('=== DEBUG: Error al guardar ===', err);
+      setEditProductFormMessage('error', err.message || 'No se pudo actualizar');
+    });
   }
 
   // Exponer funciones para onclick inline (garantiza interaccin)
@@ -3742,7 +3860,15 @@
         chip.style.color = '#334155';
         chip.style.borderColor = '#e2e8f0';
       });
+      
+      // Limpiar también el estado
+      if (window.__editProductState) {
+        window.__editProductState.categories.clear();
+        window.__editProductState.display.clear();
+      }
+      syncEditCurrentChips();
     });
+    
     btnAll?.addEventListener('click', () => {
       list?.querySelectorAll('.cat-chip').forEach(chip => {
         chip.classList.add('selected');
@@ -3751,19 +3877,19 @@
         chip.style.background = '#dbeafe';
         chip.style.color = '#1e3a8a';
         chip.style.borderColor = '#bfdbfe';
+        
+        // Agregar al estado
+        const id = parseInt(chip.getAttribute('data-cat-id') || chip.getAttribute('data-cat-key'));
+        const label = chip.getAttribute('data-cat-name') || '';
+        if (id && window.__editProductState) {
+          window.__editProductState.categories.add(id);
+          window.__editProductState.display.set(id, label);
+        }
       });
+      syncEditCurrentChips();
     });
 
-    // Quitar categora actual (solo UI)
-    const currentWrap = document.getElementById('productEditCurrentCats');
-    currentWrap?.addEventListener('click', (e) => {
-      const btn = e.target.closest('.cat-remove');
-      if (!btn) return;
-      const tag = btn.closest('.tag');
-      const name = tag?.getAttribute('data-cat') || '';
-      if (tag) tag.remove();
-      showToast(`Categora "${name}" quitada.`, 'info');
-    });
+    // El manejo de eliminación de categorías se hace en syncEditCurrentChips() y enhanceEditCategoryRemovalToast()
   })();
 
   // Captura para mejorar feedback al quitar categoría en modal de edición

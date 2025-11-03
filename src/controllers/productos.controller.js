@@ -58,10 +58,13 @@ async function updateProducto(req, res) {
       const v = Number(cantidad); if (!Number.isInteger(v) || v < 0) return res.status(400).json({ success:false, message:'cantidad inválida' });
       updates.cantidad = v;
     }
-    let cats = [];
-    if (Array.isArray(categorias)) cats = categorias.filter(x => typeof x === 'string' && x.trim()).map(s => s.trim());
+    // Si vienen categorías (incluso array vacío), procesarlas
+    let cats = undefined;
+    if (Array.isArray(categorias)) {
+      cats = categorias.filter(x => typeof x === 'string' && x.trim()).map(s => s.trim());
+    }
 
-    const result = await service.updateProductoByCodigo({ codigo, ...updates, categorias: cats.length ? cats : undefined });
+    const result = await service.updateProductoByCodigo({ codigo, ...updates, categorias: cats });
     return res.json({ success: true, message: 'Producto actualizado', product: result });
   } catch (err) {
     console.error('updateProducto error:', err);

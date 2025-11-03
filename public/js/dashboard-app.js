@@ -988,10 +988,10 @@
     }
   }
 
-  function openCategoryProducts(categoryId) {
+  async function openCategoryProducts(categoryId) {
     const category = getCategoryById(categoryId);
     if (!category) {
-      showToast('Categora no encontrada.', 'error');
+      showToast('Categoría no encontrada.', 'error');
       return;
     }
 
@@ -1009,86 +1009,94 @@
     const helperEl = document.getElementById('productsCategoryHelper');
     const colorEl = document.getElementById('productsCategoryColor');
     const bodyEl = document.getElementById('categoryProductsBody');
-    const count = category.productsCount ?? 0;
 
     if (titleEl) titleEl.textContent = category.name;
-    if (messageEl) messageEl.textContent = 'A continuacin se muestran los productos asociados a esta categora.';
-    if (helperEl) {
-      helperEl.textContent = count === 0
-        ? 'An no hay productos registrados.'
-        : `Actualmente se muestran ${count} ${count === 1 ? 'producto' : 'productos'} en el catlogo.`;
-    }
+    if (messageEl) messageEl.textContent = 'A continuación se muestran los productos asociados a esta categoría.';
     if (colorEl) {
       colorEl.style.background = category.color || '#3b82f6';
     }
 
-    // Poblar la tabla con los productos de la categora (fuente: dataset del dashboard)
+    // Mostrar loading
     if (bodyEl) {
-      const products = getProductsForCategory(category.name);
-      if (!products.length) {
+      bodyEl.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align:center; padding:20px;">
+            <i class="fas fa-spinner fa-pulse"></i> Cargando productos...
+          </td>
+        </tr>
+      `;
+    }
+
+    // Abrir modal inmediatamente
+    modalManager.open('categoryProductsModal');
+
+    try {
+      // Cargar productos desde API filtrados por categoría
+      const products = await getProductsForCategory(category.name);
+      
+      const count = products.length;
+      if (helperEl) {
+        helperEl.textContent = count === 0
+          ? 'Aún no hay productos registrados.'
+          : `Actualmente se muestran ${count} ${count === 1 ? 'producto' : 'productos'} en el catálogo.`;
+      }
+
+      // Configurar estado de paginación
+      const pageSizeSelect = document.getElementById('categoryProductsPageSize');
+      const defaultSize = Number(pageSizeSelect?.value || 10) || 10;
+      categoryProductsState = {
+        items: products,
+        page: 1,
+        pageSize: defaultSize,
+        total: products.length,
+        name: category.name
+      };
+
+      renderCategoryProductsPage();
+
+      // Configurar controles de paginación
+      if (pageSizeSelect) {
+        pageSizeSelect.onchange = () => {
+          const newSize = Number(pageSizeSelect.value) || 10;
+          categoryProductsState.pageSize = newSize;
+          categoryProductsState.page = 1;
+          renderCategoryProductsPage();
+        };
+      }
+
+      const prevBtn = document.getElementById('categoryProductsPrev');
+      const nextBtn = document.getElementById('categoryProductsNext');
+      
+      if (prevBtn) {
+        prevBtn.onclick = () => {
+          if (categoryProductsState.page > 1) {
+            categoryProductsState.page -= 1;
+            renderCategoryProductsPage();
+          }
+        };
+      }
+      if (nextBtn) {
+        nextBtn.onclick = () => {
+          const maxPage = Math.max(1, Math.ceil(categoryProductsState.total / categoryProductsState.pageSize));
+          if (categoryProductsState.page < maxPage) {
+            categoryProductsState.page += 1;
+            renderCategoryProductsPage();
+          }
+        };
+      }
+    } catch (error) {
+      console.error('Error cargando productos de categoría:', error);
+      if (bodyEl) {
         bodyEl.innerHTML = `
           <tr>
-            <td colspan="6"><p class="empty-state">No hay productos asociados a esta categora.</p></td>
+            <td colspan="6" style="text-align:center; padding:20px; color:#ef4444;">
+              <i class="fas fa-exclamation-circle"></i> Error al cargar productos
+            </td>
           </tr>
         `;
-      } else {
-        bodyEl.innerHTML = products.map(p => `
-          <tr>
-            <td>${p.code}</td>
-            <td>${p.name}</td>
-            <td>${(p.categories || []).map(cat => `<span class="tag">${cat}</span>`).join(' ')}</td>
-            <td>${p.cost}</td>
-            <td>${p.price}</td>
-            <td><span class="status-chip ${p.status === 'Activo' ? 'success' : 'warning'}">${p.status}</span></td>
-          </tr>
-        `).join('');
       }
+      showToast('Error al cargar productos', 'error');
     }
-
-    // Configurar y renderizar paginacin dentro del modal
-    const pageSizeSelect = document.getElementById('categoryProductsPageSize');
-    const prevBtn = document.getElementById('categoryProductsPrev');
-    const nextBtn = document.getElementById('categoryProductsNext');
-
-    const listForCategory = getProductsForCategory(category.name);
-    const defaultSize = Number(pageSizeSelect?.value || 10) || 10;
-    categoryProductsState = {
-      items: listForCategory,
-      page: 1,
-      pageSize: defaultSize,
-      total: listForCategory.length,
-      name: category.name
-    };
-
-    renderCategoryProductsPage();
-
-    if (pageSizeSelect) {
-      pageSizeSelect.onchange = () => {
-        const newSize = Number(pageSizeSelect.value) || 10;
-        categoryProductsState.pageSize = newSize;
-        categoryProductsState.page = 1;
-        renderCategoryProductsPage();
-      };
-    }
-    if (prevBtn) {
-      prevBtn.onclick = () => {
-        if (categoryProductsState.page > 1) {
-          categoryProductsState.page -= 1;
-          renderCategoryProductsPage();
-        }
-      };
-    }
-    if (nextBtn) {
-      nextBtn.onclick = () => {
-        const maxPage = Math.max(1, Math.ceil(categoryProductsState.total / categoryProductsState.pageSize));
-        if (categoryProductsState.page < maxPage) {
-          categoryProductsState.page += 1;
-          renderCategoryProductsPage();
-        }
-      };
-    }
-
-    modalManager.open('categoryProductsModal');
   }
 
   function openCategoryDetail(categoryId) {
@@ -2651,7 +2659,7 @@
     btnAssoc.onclick = () => activate('assoc');
   }
 
-  function buildAssociationUI(data) {
+  async function buildAssociationUI(data) {
     const productInput = document.getElementById('assocProductInput');
     const resultsBox = document.getElementById('assocProductResults');
     const grid = document.getElementById('assocCategoryGrid');
@@ -2666,16 +2674,36 @@
     const saveBtn = document.getElementById('assocSaveBtn');
     if (!productInput || !grid) return;
 
-    // Poblar productos (estticos)
-    const products = (data?.list || []).map(p => ({ code: p.code, name: p.name, categories: p.categories || [] }));
-    let currentProduct = products[0] || { code: '', name: '', categories: [] };
-    // Prefill input para dar pista
-    if (currentProduct.code) {
-      productInput.value = currentProduct.code + '  ' + currentProduct.name;
+    // Cargar productos desde API
+    let productsCache = [];
+    let allCategories = [];
+    let categoryIdMap = new Map(); // nombre -> IdCategoria
+    
+    try {
+      // Cargar categorías desde API
+      const catResponse = await apiRequest(API_ENDPOINTS.categorias);
+      if (catResponse.success && Array.isArray(catResponse.data)) {
+        allCategories = catResponse.data.map(c => c.Nombre);
+        catResponse.data.forEach(c => {
+          categoryIdMap.set(c.Nombre.toLowerCase(), c.IdCategoria);
+        });
+      }
+      
+      // Cargar productos iniciales desde API (primera página)
+      const prodResponse = await apiRequest(API_ENDPOINTS.productos + '?page=1&limit=100');
+      if (prodResponse.success && Array.isArray(prodResponse.data)) {
+        productsCache = prodResponse.data.map(p => ({
+          codigo: p.Codigo,
+          nombre: p.Nombre,
+          categorias: Array.isArray(p.categorias) ? p.categorias : []
+        }));
+      }
+    } catch (error) {
+      console.error('Error cargando datos para asociación:', error);
+      showToast('Error al cargar datos', 'error');
     }
 
-    // Poblar grid de categoras como chips seleccionables con paginacin
-    const allCategories = (DASHBOARD_DATA.admin?.categorias?.list || []).map(c => c.name);
+    let currentProduct = null;
     let filtered = allCategories.slice();
     let page = 1;
     const pageSize = 10;
@@ -2704,15 +2732,11 @@
         `;
       }).join('');
 
-      if (pageInfo) pageInfo.textContent = `Mostrando ${total ? start + 1 : 0}${end} de ${total}`;
+      if (pageInfo) pageInfo.textContent = `Mostrando ${total ? start + 1 : 0}–${end} de ${total}`;
       if (btnPrev) btnPrev.disabled = page <= 1;
       if (btnNext) btnNext.disabled = page >= maxPage;
-    };
-
-    const renderGrid = (checkedSet = new Set()) => {
-      selectedSet = checkedSet;
-      renderPaged();
-
+      
+      // Event listener para clicks en chips
       grid.onclick = e => {
         const chip = e.target.closest('.cat-chip');
         if (!chip) return;
@@ -2725,14 +2749,13 @@
         chip.style.color = selected ? '#1e3a8a' : '#334155';
         chip.style.borderColor = selected ? '#bfdbfe' : '#e2e8f0';
         if (selected) selectedSet.add(k); else selectedSet.delete(k);
-        const code = currentProduct?.code || '';
-        if (summary) summary.value = code + ' | ' + selectedSet.size + ' categora(s) seleccionada(s)';
+        updateSummary(currentProduct, selectedSet);
       };
     };
 
     const updateSummary = (prod, set) => {
       if (summary) {
-        summary.value = prod.code + ' | ' + set.size + ' categora(s) seleccionada(s)';
+        summary.value = prod ? `${prod.codigo} | ${set.size} categoría(s) seleccionada(s)` : 'Selecciona un producto';
       }
       if (message) {
         message.className = 'message-container';
@@ -2740,10 +2763,36 @@
       }
     };
 
-    const refreshForProduct = code => {
-      const prod = products.find(p => p.code === code) || products[0];
-      const set = new Set((prod.categories || []).map(x => x.toString().toLowerCase()));
-      renderGrid(set);
+    const refreshForProduct = async (codigo) => {
+      if (!codigo) return;
+      
+      // Buscar en caché o cargar desde API
+      let prod = productsCache.find(p => p.codigo === codigo);
+      if (!prod) {
+        try {
+          const response = await apiRequest(`${API_ENDPOINTS.productos}/${encodeURIComponent(codigo)}`);
+          if (response.success && response.product) {
+            prod = {
+              codigo: response.product.codigo,
+              nombre: response.product.nombre,
+              categorias: Array.isArray(response.product.categorias) ? response.product.categorias : []
+            };
+            productsCache.push(prod);
+          }
+        } catch (error) {
+          console.error('Error cargando producto:', error);
+          showToast('Error al cargar producto', 'error');
+          return;
+        }
+      }
+      
+      if (!prod) return;
+      currentProduct = prod;
+      
+      // Inicializar selección con categorías actuales del producto
+      const set = new Set((prod.categorias || []).map(x => x.toString().toLowerCase()));
+      selectedSet = set;
+      renderPaged();
       updateSummary(prod, set);
       // Controles
       if (search) {
@@ -2758,12 +2807,12 @@
       if (btnClear) btnClear.onclick = () => {
         selectedSet.clear();
         renderPaged();
-        updateSummary(prod, selectedSet);
+        updateSummary(currentProduct, selectedSet);
       };
       if (btnAll) btnAll.onclick = () => {
         selectedSet = new Set(allCategories.map(n => n.toLowerCase()));
         renderPaged();
-        updateSummary(prod, selectedSet);
+        updateSummary(currentProduct, selectedSet);
       };
       if (btnPrev) btnPrev.onclick = () => { page = Math.max(1, page - 1); renderPaged(); };
       if (btnNext) btnNext.onclick = () => {
@@ -2773,14 +2822,37 @@
       };
     };
 
-    // Autocompletado de producto (por cdigo o nombre)
-    function renderProductResults(term) {
+    // Autocompletado de producto (por código o nombre)
+    async function renderProductResults(term) {
       if (!resultsBox) return;
       const t = (term || '').toLowerCase().trim();
-      let matches = products;
+      
+      // Si el término es muy corto, buscar en caché
+      let matches = productsCache;
       if (t) {
-        matches = products.filter(p => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t));
+        // Si hay más de 3 caracteres, hacer búsqueda en API
+        if (t.length >= 3) {
+          try {
+            const response = await apiRequest(`${API_ENDPOINTS.productos}?search=${encodeURIComponent(t)}&limit=10`);
+            if (response.success && Array.isArray(response.data)) {
+              matches = response.data.map(p => ({
+                codigo: p.Codigo,
+                nombre: p.Nombre,
+                categorias: Array.isArray(p.categorias) ? p.categorias : []
+              }));
+            }
+          } catch (error) {
+            console.error('Error buscando productos:', error);
+          }
+        } else {
+          // Buscar en caché local
+          matches = productsCache.filter(p => 
+            p.codigo.toLowerCase().includes(t) || 
+            p.nombre.toLowerCase().includes(t)
+          );
+        }
       }
+      
       matches = matches.slice(0, 8);
       if (matches.length === 0) {
         resultsBox.style.display = 'none';
@@ -2788,8 +2860,8 @@
         return;
       }
       resultsBox.innerHTML = matches.map(p => `
-        <div class="result-item" data-code="${p.code}" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
-          <span>${p.code}  ${p.name}</span>
+        <div class="result-item" data-code="${p.codigo}" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+          <span>${p.codigo} • ${p.nombre}</span>
           <i class="fas fa-arrow-turn-down"></i>
         </div>
       `).join('');
@@ -2811,30 +2883,81 @@
       const item = e.target.closest('.result-item');
       if (!item) return;
       const code = item.getAttribute('data-code');
-      const prod = products.find(p => p.code === code);
+      const prod = productsCache.find(p => p.codigo === code);
       if (!prod) return;
       currentProduct = prod;
-      productInput.value = prod.code + ' | ' + prod.name;
+      productInput.value = prod.codigo + ' | ' + prod.nombre;
       resultsBox.style.display = 'none';
-      refreshForProduct(prod.code);
+      refreshForProduct(prod.codigo);
     });
 
-    // Inicializar con primer producto
-    if (currentProduct.code) {
-      refreshForProduct(currentProduct.code);
-    }
+    // Guardar asociación (llamada real a la API)
+    saveBtn?.addEventListener('click', async () => {
+      if (!currentProduct) {
+        if (message) {
+          message.className = 'message-container error';
+          message.innerHTML = '<i class="fas fa-exclamation-circle"></i> Selecciona un producto primero';
+        }
+        return;
+      }
 
-    // Guardar asociacin (solo UI)
-    saveBtn?.addEventListener('click', () => {
       saveBtn.disabled = true;
       saveBtn.setAttribute('data-loading', 'true');
       saveBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Guardando...';
-      setTimeout(() => {
+
+      try {
+        // Convertir nombres de categorías a IDs
+        const categoriaIds = Array.from(selectedSet)
+          .map(nombreLower => {
+            // Buscar el ID correspondiente al nombre
+            const catId = categoryIdMap.get(nombreLower);
+            return catId ? String(catId) : null;
+          })
+          .filter(id => id !== null);
+
+        console.log('=== DEBUG: Asociación producto-categorías ===');
+        console.log('Producto:', currentProduct.codigo, currentProduct.nombre);
+        console.log('Categorías seleccionadas (nombres):', Array.from(selectedSet));
+        console.log('Categorías a enviar (IDs):', categoriaIds);
+
+        // Actualizar producto con nuevas categorías
+        const response = await apiRequest(`${API_ENDPOINTS.productos}/${encodeURIComponent(currentProduct.codigo)}`, {
+          method: 'PUT',
+          body: {
+            nombre: currentProduct.nombre,
+            categorias: categoriaIds
+          }
+        });
+
+        console.log('=== DEBUG: Respuesta del servidor ===', response);
+
+        if (response.success) {
+          showToast('Asociación actualizada correctamente', 'success');
+          if (message) {
+            message.className = 'message-container success';
+            message.innerHTML = '<i class="fas fa-check-circle"></i> Categorías guardadas exitosamente';
+          }
+          
+          // Actualizar caché
+          const prodIndex = productsCache.findIndex(p => p.codigo === currentProduct.codigo);
+          if (prodIndex >= 0) {
+            productsCache[prodIndex].categorias = Array.from(selectedSet);
+          }
+        } else {
+          throw new Error(response.message || 'Error al guardar');
+        }
+      } catch (error) {
+        console.error('Error guardando asociación:', error);
+        showToast(error.message || 'Error al guardar asociación', 'error');
+        if (message) {
+          message.className = 'message-container error';
+          message.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${error.message || 'Error al guardar'}`;
+        }
+      } finally {
         saveBtn.disabled = false;
         saveBtn.removeAttribute('data-loading');
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar asociacin';
-        showToast('Asociacin actualizada correctamente.', 'success');
-      }, 800);
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar asociación';
+      }
     });
   }
 
@@ -4367,22 +4490,55 @@
   }
 
   // Obtiene productos del dataset que pertenecen a una categora
-  function getProductsForCategory(categoryName) {
-    const data = DASHBOARD_DATA.admin?.productos?.list || [];
-    const name = (categoryName || '').toString().toLowerCase();
-    return data.filter(p => (p.categories || []).some(c => c.toString().toLowerCase() === name));
+  async function getProductsForCategory(categoryName) {
+    try {
+      // Cargar todos los productos desde API
+      const response = await apiRequest(`${API_ENDPOINTS.productos}?limit=100`);
+      
+      if (!response.success || !Array.isArray(response.data)) {
+        console.error('Error al cargar productos:', response);
+        return [];
+      }
+
+      // Filtrar productos que tengan la categoría especificada
+      const name = (categoryName || '').toString().toLowerCase().trim();
+      return response.data
+        .filter(p => {
+          const categorias = Array.isArray(p.categorias) ? p.categorias : [];
+          return categorias.some(cat => cat.toString().toLowerCase().trim() === name);
+        })
+        .map(p => ({
+          codigo: p.Codigo,
+          nombre: p.Nombre,
+          categorias: Array.isArray(p.categorias) ? p.categorias : [],
+          precioCosto: p.PrecioCosto,
+          precioVenta: p.PrecioVenta,
+          cantidad: p.Cantidad || 0,
+          estado: p.Estado ? 'Activo' : 'Inactivo'
+        }));
+    } catch (error) {
+      console.error('Error en getProductsForCategory:', error);
+      return [];
+    }
   }
 
-  // Aplica filtro en la tabla de productos de la seccin Productos
-  function applyProductsCategoryFilter(categoryName) {
+  // Aplica filtro en la tabla de productos de la sección Productos
+  async function applyProductsCategoryFilter(categoryName) {
     const tbody = document.querySelector('#productTable tbody');
     if (!tbody) return;
-    const filtered = getProductsForCategory(categoryName);
+    
+    // Mostrar loading
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-pulse"></i> Cargando...</td></tr>`;
+    
+    const filtered = await getProductsForCategory(categoryName);
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="6"><p class="empty-state">No se encontraron productos para "${escapeHtml(categoryName)}".</p></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7"><p class="empty-state">No se encontraron productos para "${escapeHtml(categoryName)}".</p></td></tr>`;
       return;
     }
-    buildProductTable(tbody, filtered);
+    
+    // Nota: buildProductTable espera el formato antiguo, necesitamos adaptar
+    // O mejor, llamar directamente a refreshProductTable con filtro
+    await refreshProductTable();
   }
 
   async function handleUserAction(action, currentRole) {
@@ -4786,8 +4942,8 @@
     const { items, page, pageSize, total } = categoryProductsState;
 
     if (!items || total === 0) {
-      bodyEl.innerHTML = `<tr><td colspan="6"><p class="empty-state">No hay productos asociados a esta categora.</p></td></tr>`;
-      if (infoEl) infoEl.textContent = 'Mostrando 00 de 0';
+      bodyEl.innerHTML = `<tr><td colspan="6"><p class="empty-state">No hay productos asociados a esta categoría.</p></td></tr>`;
+      if (infoEl) infoEl.textContent = 'Mostrando 0–0 de 0';
       if (prevBtn) prevBtn.disabled = true;
       if (nextBtn) nextBtn.disabled = true;
       return;
@@ -4804,16 +4960,16 @@
 
     bodyEl.innerHTML = slice.map(p => `
       <tr>
-        <td>${p.code}</td>
-        <td>${p.name}</td>
-        <td>${(p.categories || []).map(cat => `<span class=\"tag\">${cat}</span>`).join(' ')}</td>
-        <td>${p.cost}</td>
-        <td>${p.price}</td>
-        <td><span class=\"status-chip ${p.status === 'Activo' ? 'success' : 'warning'}\">${p.status}</span></td>
+        <td>${escapeHtml(p.codigo)}</td>
+        <td>${escapeHtml(p.nombre)}</td>
+        <td>${(p.categorias || []).map(cat => `<span class="tag">${escapeHtml(cat)}</span>`).join(' ')}</td>
+        <td>Q${Number(p.precioCosto || 0).toFixed(2)}</td>
+        <td>Q${Number(p.precioVenta || 0).toFixed(2)}</td>
+        <td><span class="status-chip ${p.estado === 'Activo' ? 'success' : 'warning'}">${escapeHtml(p.estado)}</span></td>
       </tr>
     `).join('');
 
-    if (infoEl) infoEl.textContent = `Mostrando ${start + 1}${end} de ${total}`;
+    if (infoEl) infoEl.textContent = `Mostrando ${start + 1}–${end} de ${total}`;
     if (prevBtn) prevBtn.disabled = safePage <= 1;
     if (nextBtn) nextBtn.disabled = safePage >= maxPage;
   }

@@ -195,10 +195,64 @@ async function eliminarCategoria(req, res) {
   }
 }
 
+/**
+ * Obtener productos de una categoría
+ * GET /api/categorias/:id/productos?page=1&limit=20
+ */
+async function obtenerProductosCategoria(req, res) {
+  try {
+    const { id } = req.params;
+    const idCategoria = parseInt(id);
+    
+    if (isNaN(idCategoria)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de categoría inválido'
+      });
+    }
+    
+    const page = req.query.page ? parseInt(req.query.page) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 100;
+    
+    if (page < 1 || limit < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Los parámetros de paginación deben ser mayores a 0'
+      });
+    }
+    
+    console.log('📦 Solicitud de productos de categoría:', { idCategoria, page, limit });
+    
+    const productos = await service.obtenerProductosCategoria(idCategoria, page, limit);
+    
+    const totalRegistros = productos.length > 0 ? productos[0].TotalRegistros || productos.length : 0;
+    const totalPaginas = Math.ceil(totalRegistros / limit);
+    
+    return res.json({
+      success: true,
+      data: productos,
+      pagination: {
+        page,
+        limit,
+        total: totalRegistros,
+        totalPages: totalPaginas,
+        hasMore: page < totalPaginas
+      }
+    });
+  } catch (error) {
+    console.error('Error en obtenerProductosCategoria:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener los productos de la categoría'
+    });
+  }
+}
+
 module.exports = {
   listarCategorias,
   obtenerCategoria,
   crearCategoria,
   actualizarCategoria,
-  eliminarCategoria
+  eliminarCategoria,
+  obtenerProductosCategoria
 };

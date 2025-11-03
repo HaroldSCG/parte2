@@ -530,10 +530,104 @@
       document.body.classList.remove('modal-open');
     }
 
+    function showModal(config) {
+      const { title, content, actions = [], size = 'medium' } = config;
+      
+      // Crear modal dinámico
+      const modalId = 'dynamicModal_' + Date.now();
+      const sizeClass = size === 'large' ? 'modal-container-large' : '';
+      
+      const actionsHtml = actions.map(action => {
+        return `<button type="button" class="btn ${action.className || 'btn-secondary'}" data-modal-action="${action.label}">${action.label}</button>`;
+      }).join('');
+      
+      const modalHtml = `
+        <div class="modal-overlay show" id="${modalId}" aria-hidden="false">
+          <div class="modal-container ${sizeClass}">
+            <div class="modal-header">
+              <h2>${title}</h2>
+              <button class="modal-close" data-dynamic-close="${modalId}">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="modal-body">
+              ${content}
+            </div>
+            <div class="modal-footer">
+              ${actionsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Agregar al body
+      const modalElement = document.createElement('div');
+      modalElement.innerHTML = modalHtml;
+      const modal = modalElement.firstElementChild;
+      document.body.appendChild(modal);
+      document.body.classList.add('modal-open');
+      active.add(modalId);
+      
+      // Agregar event listeners para cerrar
+      const closeBtn = modal.querySelector(`[data-dynamic-close="${modalId}"]`);
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => closeModal(modalId));
+      }
+      
+      // Agregar event listeners para las acciones
+      actions.forEach((action, index) => {
+        const btn = modal.querySelector(`[data-modal-action="${action.label}"]`);
+        if (btn && action.action) {
+          btn.addEventListener('click', () => {
+            action.action();
+            if (action.closeAfter !== false) {
+              closeModal(modalId);
+            }
+          });
+        }
+      });
+      
+      // Cerrar al hacer click en el overlay
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal(modalId);
+        }
+      });
+      
+      return modalId;
+    }
+
+    function closeModal(modalId = null) {
+      if (modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal && modal.id.startsWith('dynamicModal_')) {
+          modal.classList.remove('show');
+          active.delete(modalId);
+          setTimeout(() => {
+            modal.remove();
+          }, 300);
+        } else {
+          close(modalId);
+        }
+      } else {
+        // Cerrar el último modal dinámico
+        const dynamicModals = Array.from(active).filter(id => id.startsWith('dynamicModal_'));
+        if (dynamicModals.length > 0) {
+          closeModal(dynamicModals[dynamicModals.length - 1]);
+        }
+      }
+      
+      if (active.size === 0) {
+        document.body.classList.remove('modal-open');
+      }
+    }
+
     return {
       open,
       close,
       closeAll,
+      showModal,
+      closeModal,
       isOpen: modalId => active.has(modalId)
     };
   }
@@ -1038,8 +1132,8 @@
 
     try {
       // Cargar productos desde API filtrados por categoría
-      console.log('Llamando a getProductsForCategory con:', category.name);
-      const products = await getProductsForCategory(category.name);
+      console.log('Llamando a getProductsForCategory con:', category.name, 'ID:', categoryId);
+      const products = await getProductsForCategory(category.name, categoryId);
       console.log('Productos cargados:', products.length, products);
       
       const count = products.length;
@@ -1119,7 +1213,6 @@
     closeCategoryMenu();
 
     const nameEl = document.getElementById('detailCategoryName');
-    const productsEl = document.getElementById('detailCategoryProducts');
     const descriptionEl = document.getElementById('detailCategoryDescription');
     const colorEl = document.getElementById('detailCategoryColor');
     const detailActions = document.querySelector('#categoryDetailModal .detail-actions');
@@ -1127,8 +1220,6 @@
     const detailDeleteBtn = document.querySelector('[data-category-action="detail-delete"]');
 
     if (nameEl) nameEl.textContent = category.name;
-    const count = category.productsCount ?? 0;
-    if (productsEl) productsEl.textContent = `${count} ${count === 1 ? 'producto asociado' : 'productos asociados'}`;
     if (descriptionEl) descriptionEl.textContent = category.description || 'Sin descripcin registrada.';
     if (colorEl) colorEl.style.background = category.color || '#3b82f6';
     if (detailActions) {
@@ -2445,6 +2536,21 @@
     initSalesModule();
   }
 
+  // ===== ESTADO Y FUNCIONES PARA BITÁCORA DE VENTAS =====
+  // Estado de paginación y filtros para la bitácora de ventas
+  const salesLogState = {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    filters: {
+      search: '',
+      dateFrom: '',
+      dateTo: '',
+      minAmount: null,
+      maxAmount: null
+    }
+  };
+
   function initSalesModule() {
     setupSalesTabs();
     setupPOS();
@@ -2500,13 +2606,16 @@
     try {
       const response = await apiRequest(API_ENDPOINTS.productos);
       if (response.success && Array.isArray(response.data)) {
-        products = response.data.map(p => ({
-          id: p.IdProducto,
-          code: p.Codigo,
-          name: p.Nombre,
-          price: parseFloat(p.PrecioVenta || 0),
-          discount: parseFloat(p.Descuento || 0) // ⭐ Porcentaje de descuento
-        }));
+        products = response.data
+          .filter(p => p.Estado === 1 || p.Estado === true) // ⭐ Solo productos activos
+          .map(p => ({
+            id: p.IdProducto,
+            code: p.Codigo,
+            name: p.Nombre,
+            price: parseFloat(p.PrecioVenta || 0),
+            discount: parseFloat(p.Descuento || 0), // ⭐ Porcentaje de descuento
+            estado: p.Estado // ⭐ Guardar estado para validación adicional
+          }));
       }
     } catch (err) {
       console.error('Error cargando productos:', err);
@@ -2662,6 +2771,11 @@
         return invSetMessage('salesPOSMessage', 'error', 'Producto no encontrado. Selecciona uno de la lista.');
       }
       
+      // ⭐ Validar que el producto esté activo
+      if (!found.estado || found.estado === 0 || found.estado === false) {
+        return invSetMessage('salesPOSMessage', 'error', `El producto "${found.name}" está inactivo y no se puede vender.`);
+      }
+      
       // Calcular descuento
       const discountAmount = found.price * (found.discount / 100);
       const effectivePrice = found.price - discountAmount;
@@ -2785,20 +2899,6 @@
     // Render inicial del carrito
     renderCart();
   }
-
-  // Estado de paginación y filtros para la bitácora de ventas
-  const salesLogState = {
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    filters: {
-      search: '',
-      dateFrom: '',
-      dateTo: '',
-      minAmount: null,
-      maxAmount: null
-    }
-  };
 
   function initSalesLogControls() {
     // Botón de filtros
@@ -3078,60 +3178,109 @@
       const descuentoTotal = parseFloat(cabecera.DescuentoTotal || 0);
       const total = parseFloat(cabecera.Total || 0);
       
-      const itemsHtml = items.map(item => {
+      // Calcular totales de productos
+      const totalItems = items.reduce((acc, item) => acc + parseInt(item.Cantidad || 0), 0);
+      
+      const itemsHtml = items.map((item, index) => {
         const precioUnitario = parseFloat(item.PrecioUnitario || 0);
         const descuento = parseFloat(item.Descuento || 0);
         const cantidad = parseInt(item.Cantidad || 0);
         const subtotalItem = (precioUnitario - descuento) * cantidad;
         
         return `
-          <tr>
-            <td style="font-weight:500;">${escapeHtml(item.Codigo || 'N/A')}</td>
-            <td>${escapeHtml(item.NombreProducto || 'N/A')}</td>
-            <td style="text-align:center;">${cantidad}</td>
-            <td style="text-align:right;">$${precioUnitario.toFixed(2)}</td>
-            <td style="text-align:right; color:${descuento > 0 ? '#10b981' : '#94a3b8'};">
-              ${descuento > 0 ? '-' : ''}$${descuento.toFixed(2)}
+          <tr style="border-bottom:1px solid #e2e8f0; ${index % 2 === 0 ? 'background:#f9fafb;' : ''}">
+            <td style="padding:14px 12px; font-weight:500; color:#475569;">${escapeHtml(item.Codigo || 'N/A')}</td>
+            <td style="padding:14px 12px; color:#1e293b;">${escapeHtml(item.NombreProducto || 'N/A')}</td>
+            <td style="padding:14px 12px; text-align:center;">
+              <span style="display:inline-block; background:#dbeafe; color:#1e40af; padding:4px 12px; border-radius:12px; font-weight:600; font-size:13px;">
+                ${cantidad}
+              </span>
             </td>
-            <td style="text-align:right; font-weight:600;">$${subtotalItem.toFixed(2)}</td>
+            <td style="padding:14px 12px; text-align:right; color:#475569; font-weight:500;">$${precioUnitario.toFixed(2)}</td>
+            <td style="padding:14px 12px; text-align:right; color:${descuento > 0 ? '#10b981' : '#94a3b8'}; font-weight:500;">
+              ${descuento > 0 ? '-$' + descuento.toFixed(2) : '$0.00'}
+            </td>
+            <td style="padding:14px 12px; text-align:right; font-weight:700; color:#1e293b; font-size:15px;">$${subtotalItem.toFixed(2)}</td>
           </tr>
         `;
       }).join('');
       
       const content = `
-        <div class="sale-detail-content" style="padding:24px;">
-          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid #e2e8f0;">
+        <div class="sale-detail-content" style="padding:28px; max-height:70vh; overflow-y:auto;">
+          <!-- Encabezado de venta -->
+          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:28px; padding:20px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:12px; color:#fff; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
             <div>
-              <h4 style="margin:0 0 8px 0; color:#1e293b; font-size:24px;">Venta #${cabecera.IdVenta}</h4>
-              <p style="margin:0; color:#64748b; font-size:14px;"><i class="fas fa-calendar-alt"></i> ${formatDateTimeSafe(cabecera.FechaVenta)}</p>
+              <p style="margin:0 0 4px 0; opacity:0.9; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">Documento de venta</p>
+              <h4 style="margin:0 0 8px 0; font-size:28px; font-weight:700; text-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                <i class="fas fa-receipt"></i> #${cabecera.IdVenta}
+              </h4>
+              <p style="margin:0; opacity:0.95; font-size:15px;">
+                <i class="fas fa-calendar-alt"></i> ${formatDateTimeSafe(cabecera.FechaVenta)}
+              </p>
             </div>
             <div style="text-align:right;">
-              <p style="margin:0 0 4px 0; color:#64748b; font-size:13px;">Usuario</p>
-              <span class="badge" style="background:#3b82f6; color:#fff; padding:6px 12px; border-radius:6px; font-size:14px;">
-                <i class="fas fa-user"></i> ${escapeHtml(cabecera.Usuario || 'N/A')}
-              </span>
+              <p style="margin:0 0 6px 0; opacity:0.9; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">Registrado por</p>
+              <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.2); padding:8px 16px; border-radius:20px; backdrop-filter:blur(10px);">
+                <i class="fas fa-user-circle" style="font-size:20px;"></i>
+                <span style="font-weight:600; font-size:15px;">${escapeHtml(cabecera.Usuario || 'N/A')}</span>
+              </div>
             </div>
           </div>
           
+          <!-- Observación -->
           ${cabecera.Observacion ? `
-            <div style="margin-bottom:20px; padding:12px; background:#f8fafc; border-left:4px solid #3b82f6; border-radius:4px;">
-              <p style="margin:0; color:#475569; font-size:14px;"><strong>Observación:</strong> ${escapeHtml(cabecera.Observacion)}</p>
+            <div style="margin-bottom:24px; padding:16px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+              <div style="display:flex; align-items:start; gap:12px;">
+                <i class="fas fa-sticky-note" style="color:#f59e0b; font-size:18px; margin-top:2px;"></i>
+                <div>
+                  <p style="margin:0 0 4px 0; color:#92400e; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.3px;">Observación</p>
+                  <p style="margin:0; color:#78350f; font-size:14px; line-height:1.5;">${escapeHtml(cabecera.Observacion)}</p>
+                </div>
+              </div>
             </div>
           ` : ''}
           
-          <h5 style="margin:0 0 12px 0; color:#475569; font-size:16px; font-weight:600;">
-            <i class="fas fa-shopping-cart"></i> Productos (${items.length} ${items.length === 1 ? 'item' : 'items'})
-          </h5>
-          <div style="overflow-x:auto; margin-bottom:20px;">
-            <table class="data-table" style="width:100%; margin:0;">
+          <!-- Resumen de items -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; padding:12px 16px; background:#f0f9ff; border-radius:8px; border:1px solid #bae6fd;">
+            <h5 style="margin:0; color:#0c4a6e; font-size:16px; font-weight:700;">
+              <i class="fas fa-shopping-cart"></i> Productos de la venta
+            </h5>
+            <div style="display:flex; gap:20px; align-items:center;">
+              <div style="text-align:center;">
+                <p style="margin:0; color:#0369a1; font-size:12px; font-weight:500;">Items</p>
+                <p style="margin:0; color:#0c4a6e; font-size:18px; font-weight:700;">${items.length}</p>
+              </div>
+              <div style="width:1px; height:30px; background:#bae6fd;"></div>
+              <div style="text-align:center;">
+                <p style="margin:0; color:#0369a1; font-size:12px; font-weight:500;">Unidades</p>
+                <p style="margin:0; color:#0c4a6e; font-size:18px; font-weight:700;">${totalItems}</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabla de productos -->
+          <div style="overflow-x:auto; margin-bottom:24px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <table style="width:100%; margin:0; border-collapse:collapse;">
               <thead>
-                <tr style="background:#f1f5f9;">
-                  <th style="padding:12px;">Código</th>
-                  <th style="padding:12px;">Producto</th>
-                  <th style="padding:12px; text-align:center;">Cantidad</th>
-                  <th style="padding:12px; text-align:right;">Precio Unit.</th>
-                  <th style="padding:12px; text-align:right;">Descuento</th>
-                  <th style="padding:12px; text-align:right;">Subtotal</th>
+                <tr style="background:linear-gradient(to right, #1e293b, #334155);">
+                  <th style="padding:14px 12px; text-align:left; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-barcode"></i> Código
+                  </th>
+                  <th style="padding:14px 12px; text-align:left; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-box"></i> Producto
+                  </th>
+                  <th style="padding:14px 12px; text-align:center; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-hashtag"></i> Cant.
+                  </th>
+                  <th style="padding:14px 12px; text-align:right; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-tag"></i> P. Unit.
+                  </th>
+                  <th style="padding:14px 12px; text-align:right; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-percent"></i> Desc.
+                  </th>
+                  <th style="padding:14px 12px; text-align:right; color:#fff; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">
+                    <i class="fas fa-dollar-sign"></i> Subtotal
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -3140,29 +3289,54 @@
             </table>
           </div>
           
-          <div style="border-top:2px solid #e2e8f0; padding-top:16px;">
-            <div style="display:flex; justify-content:flex-end; gap:80px; font-size:16px;">
-              <div style="text-align:right;">
-                <p style="margin:0 0 8px 0; color:#64748b;">Subtotal:</p>
-                ${descuentoTotal > 0 ? `<p style="margin:0 0 8px 0; color:#10b981;">Descuento:</p>` : ''}
-                <p style="margin:0; color:#1e293b; font-weight:700; font-size:18px;">Total:</p>
+          <!-- Totales -->
+          <div style="background:#f8fafc; border-radius:12px; padding:24px; border:2px solid #e2e8f0; box-shadow:0 4px 6px rgba(0,0,0,0.05);">
+            <div style="display:grid; grid-template-columns:1fr auto; gap:16px; max-width:400px; margin-left:auto;">
+              <div style="text-align:right; padding:10px 0; border-bottom:1px solid #cbd5e1;">
+                <p style="margin:0; color:#64748b; font-size:15px; font-weight:500;">Subtotal</p>
               </div>
-              <div style="text-align:right;">
-                <p style="margin:0 0 8px 0; color:#475569; font-weight:500;">$${subtotal.toFixed(2)}</p>
-                ${descuentoTotal > 0 ? `<p style="margin:0 0 8px 0; color:#10b981; font-weight:500;">-$${descuentoTotal.toFixed(2)}</p>` : ''}
-                <p style="margin:0; color:#1e293b; font-weight:700; font-size:20px;">$${total.toFixed(2)}</p>
+              <div style="text-align:right; padding:10px 0; border-bottom:1px solid #cbd5e1;">
+                <p style="margin:0; color:#1e293b; font-size:16px; font-weight:600;">$${subtotal.toFixed(2)}</p>
+              </div>
+              
+              ${descuentoTotal > 0 ? `
+                <div style="text-align:right; padding:10px 0; border-bottom:1px solid #cbd5e1;">
+                  <p style="margin:0; color:#10b981; font-size:15px; font-weight:500;">
+                    <i class="fas fa-tag"></i> Descuento Total
+                  </p>
+                </div>
+                <div style="text-align:right; padding:10px 0; border-bottom:1px solid #cbd5e1;">
+                  <p style="margin:0; color:#10b981; font-size:16px; font-weight:600;">-$${descuentoTotal.toFixed(2)}</p>
+                </div>
+              ` : ''}
+              
+              <div style="text-align:right; padding:16px 0 4px 0;">
+                <p style="margin:0; color:#1e293b; font-size:18px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+                  <i class="fas fa-coins"></i> Total
+                </p>
+              </div>
+              <div style="text-align:right; padding:16px 0 4px 0;">
+                <p style="margin:0; color:#16a34a; font-size:24px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.1);">$${total.toFixed(2)}</p>
               </div>
             </div>
+          </div>
+          
+          <!-- Nota informativa -->
+          <div style="margin-top:20px; padding:12px; background:#eff6ff; border-left:3px solid #3b82f6; border-radius:4px;">
+            <p style="margin:0; color:#1e40af; font-size:13px; display:flex; align-items:center; gap:8px;">
+              <i class="fas fa-info-circle"></i>
+              <span>Este documento es de solo lectura. Los datos mostrados corresponden al registro oficial en la base de datos.</span>
+            </p>
           </div>
         </div>
       `;
       
       modalManager.showModal({
-        title: 'Detalle de Venta',
+        title: '<i class="fas fa-file-invoice"></i> Detalle de Venta',
         content: content,
         actions: [
           {
-            label: 'Cerrar',
+            label: '<i class="fas fa-times"></i> Cerrar',
             className: 'btn-secondary',
             action: () => modalManager.closeModal()
           }
@@ -4117,9 +4291,11 @@
 
   function getStatusChipClass(status) {
     const s = (status || '').toString().toLowerCase();
+    if (s.includes('inactivo') || s.includes('desactivado')) return 'danger';
     if (s.includes('sin existencias') || s.includes('agotado')) return 'danger';
     if (s.includes('critico') || s.includes('crítico')) return 'danger';
     if (s.includes('bajo')) return 'warning';
+    if (s.includes('activo')) return 'success';
     return 'success';
   }
 
@@ -4153,13 +4329,18 @@
           : (typeof rawCats === 'string'
               ? rawCats.split(/[;|,]/).map(s => s.trim()).filter(Boolean)
               : []);
+        
+        // Convertir Estado (BIT) a texto legible
+        const estadoValue = r.Estado ?? r.estado;
+        const statusText = (estadoValue === 1 || estadoValue === true || estadoValue === '1') ? 'Activo' : 'Inactivo';
+        
         return {
           code: r.Codigo || r.codigo,
           name: r.Nombre || r.nombre,
           categories,
           cost: formatMoney(Number(r.PrecioCosto ?? r.precioCosto ?? 0)),
           price: formatMoney(Number(r.PrecioVenta ?? r.precioVenta ?? 0)),
-          status: r.Estado || r.estado || 'En stock'
+          status: statusText
         };
       });
       buildProductTable(tbody, rows);
@@ -4803,8 +4984,6 @@
       const id = category.id;
       const name = escapeHtml(category.name);
       const description = category.description ? escapeHtml(category.description) : 'Sin descripcin registrada.';
-      const count = category.productsCount ?? 0;
-      const productsLabel = `${count} ${count === 1 ? 'producto' : 'productos'}`;
       const badgeText = escapeHtml(`ID: ${category.id}`);
 
       const menu = isAdmin ? `
@@ -4826,7 +5005,6 @@
             </div>
             <div class="category-info">
               <h4>${name}</h4>
-              <span>${escapeHtml(productsLabel)}</span>
             </div>
             ${menu}
           </div>
@@ -5127,12 +5305,39 @@
   }
 
   // Obtiene productos del dataset que pertenecen a una categoría
-  async function getProductsForCategory(categoryName) {
+  async function getProductsForCategory(categoryName, categoryId) {
     console.log('=== DEBUG: getProductsForCategory ===');
-    console.log('Buscando productos con categoría:', categoryName);
+    console.log('Buscando productos con categoría:', categoryName, 'ID:', categoryId);
     
     try {
-      // Cargar todos los productos desde API
+      // Si tenemos el ID de categoría, usar el endpoint específico
+      if (categoryId) {
+        console.log('Llamando a API con ID de categoría:', categoryId);
+        const response = await apiRequest(`${API_ENDPOINTS.categoriaById(categoryId)}/productos?limit=100`);
+        console.log('Respuesta de API productos por categoría:', response);
+        
+        if (!response.success || !Array.isArray(response.data)) {
+          console.error('Error al cargar productos:', response);
+          return [];
+        }
+        
+        console.log('Total productos cargados de categoría:', response.data.length);
+        
+        return response.data.map(p => ({
+          codigo: p.Codigo,
+          nombre: p.Nombre,
+          descripcion: p.Descripcion || '',
+          categorias: [categoryName], // Ya sabemos que pertenece a esta categoría
+          precioCosto: p.PrecioCosto,
+          precioVenta: p.PrecioVenta,
+          descuento: p.Descuento || 0,
+          cantidad: p.Cantidad || 0,
+          estado: p.Estado ? 'Activo' : 'Inactivo'
+        }));
+      }
+      
+      // Fallback: Cargar todos los productos y filtrar (método anterior)
+      console.log('Fallback: cargando todos los productos y filtrando...');
       const response = await apiRequest(`${API_ENDPOINTS.productos}?limit=100`);
       console.log('Respuesta de API productos:', response);
       

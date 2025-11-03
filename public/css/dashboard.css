@@ -1223,6 +1223,11 @@ body.dashboard-body {
     max-width: 450px;
 }
 
+/* Modal grande para detalles extensos */
+.modal-container-large {
+    max-width: 900px !important;
+}
+
 
 
 @keyframes modalSlideIn {

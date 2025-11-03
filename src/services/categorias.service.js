@@ -149,10 +149,64 @@ async function eliminarCategoria(usuario, idCategoria, eliminacionFisica = false
   }
 }
 
+/**
+ * Obtener productos de una categoría específica
+ * @param {number} idCategoria - ID de la categoría
+ * @param {number} pagina - Número de página (opcional)
+ * @param {number} tamanoPagina - Tamaño de página (opcional)
+ * @returns {Array} Lista de productos de la categoría
+ */
+async function obtenerProductosCategoria(idCategoria, pagina = 1, tamanoPagina = 100) {
+  try {
+    const p = await getPool();
+    
+    // Construir consulta para obtener productos de la categoría
+    const query = `
+      SELECT 
+        p.IdProducto,
+        p.Codigo,
+        p.Nombre,
+        p.Descripcion,
+        p.PrecioCosto,
+        p.PrecioVenta,
+        p.Descuento,
+        p.Estado,
+        ISNULL(s.Existencia, 0) AS Cantidad,
+        COUNT(*) OVER() AS TotalRegistros
+      FROM com.tbProducto p
+      INNER JOIN com.tbProductoCategoria pc ON p.IdProducto = pc.IdProducto
+      LEFT JOIN com.tbStock s ON p.IdProducto = s.IdProducto
+      WHERE pc.IdCategoria = @idCategoria
+        AND p.Estado = 1
+      ORDER BY p.Nombre
+      OFFSET @offset ROWS
+      FETCH NEXT @tamanoPagina ROWS ONLY
+    `;
+    
+    const offset = (pagina - 1) * tamanoPagina;
+    const request = p.request();
+    request.input('idCategoria', sql.Int, idCategoria);
+    request.input('offset', sql.Int, offset);
+    request.input('tamanoPagina', sql.Int, tamanoPagina);
+    
+    console.log('📦 Obteniendo productos de categoría:', { idCategoria, pagina, tamanoPagina });
+    
+    const result = await request.query(query);
+    
+    console.log(`✅ Se encontraron ${result.recordset.length} productos`);
+    
+    return result.recordset;
+  } catch (error) {
+    console.error('Error en obtenerProductosCategoria:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   listarCategorias,
   obtenerCategoria,
   crearCategoria,
   actualizarCategoria,
-  eliminarCategoria
+  eliminarCategoria,
+  obtenerProductosCategoria
 };

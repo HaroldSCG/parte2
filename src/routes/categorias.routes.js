@@ -19,6 +19,15 @@ router.get('/', controller.listarCategorias);
 router.get('/:id', controller.obtenerCategoria);
 
 /**
+ * @route GET /api/categorias/:id/productos
+ * @desc Obtener productos de una categoría específica
+ * @query page - Number (default: 1)
+ * @query limit - Number (default: 100)
+ * @access Private
+ */
+router.get('/:id/productos', controller.obtenerProductosCategoria);
+
+/**
  * @route POST /api/categorias
  * @desc Crear una nueva categoría
  * @body { nombre, descripcion }

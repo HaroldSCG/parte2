@@ -387,6 +387,7 @@
     productoById: codigo => `/api/productos/${codigo}`,
     inventario: '/api/inventario',
     inventarioMovimientos: '/api/inventario/movimientos',
+    inventarioMovimiento: '/api/inventario/movimiento',
     inventarioStock: '/api/inventario/stock',
     ventas: '/api/ventas',
     ventaById: id => `/api/ventas/${id}`,
@@ -2021,6 +2022,15 @@
         const prodInput = document.getElementById('invEntryProdInput');
         if (prodInput) prodInput.removeAttribute('data-product-id');
         setInvEntryMessage('', '');
+        
+        // Autollenar fecha y hora actual
+        const dateEl = document.getElementById('invEntryDate');
+        if (dateEl) {
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          dateEl.value = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        }
+        
         modalManager.open('inventoryEntryModal');
       };
     }
@@ -2370,12 +2380,58 @@
     const products = (DASHBOARD_DATA[role]?.productos?.list || DASHBOARD_DATA.admin?.productos?.list || []).map(p => ({ code: p.code, name: p.name }));
     const input = document.getElementById('posProductInput');
     const box = document.getElementById('posProductResults');
-    invCreateAutocomplete(input, box, products, (prod) => {
-      input.value = prod.code + ' | ' + prod.name;
-      box.style.display = 'none';
-      const qtyEl = document.getElementById('posQtyInput');
-      if (qtyEl) qtyEl.focus();
-    }, { showOnFocus: false });
+    
+    // Crear autocomplete para POS
+    if (input && box) {
+      input.addEventListener('input', () => {
+        const term = (input.value || '').toLowerCase().trim();
+        let matches = products;
+        if (term) {
+          matches = products.filter(p => 
+            p.code.toLowerCase().includes(term) || 
+            p.name.toLowerCase().includes(term)
+          );
+        }
+        matches = matches.slice(0, 8);
+        
+        if (!matches.length) {
+          box.style.display = 'none';
+          box.innerHTML = '';
+          return;
+        }
+        
+        box.innerHTML = matches.map(p => `
+          <div class="result-item" data-code="${p.code}" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+            <span>${p.code} | ${p.name}</span>
+            <i class="fas fa-arrow-turn-down"></i>
+          </div>
+        `).join('');
+        box.style.display = 'block';
+      });
+      
+      input.addEventListener('focus', () => {
+        if (input.value) input.dispatchEvent(new Event('input'));
+      });
+      
+      box.addEventListener('click', (e) => {
+        const item = e.target.closest('.result-item');
+        if (!item) return;
+        const code = item.getAttribute('data-code');
+        const prod = products.find(p => p.code === code);
+        if (prod) {
+          input.value = prod.code + ' | ' + prod.name;
+          box.style.display = 'none';
+          const qtyEl = document.getElementById('posQtyInput');
+          if (qtyEl) qtyEl.focus();
+        }
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (box && !box.contains(e.target) && e.target !== input) {
+          box.style.display = 'none';
+        }
+      });
+    }
 
     const cart = [];
     function renderCart() {
@@ -4760,14 +4816,14 @@
       setInvEntryMessage('info', 'Registrando entrada...');
       
       try {
-        const response = await apiRequest('/api/inventario/movimiento', {
+        const response = await apiRequest(API_ENDPOINTS.inventarioMovimiento, {
           method: 'POST',
-          body: JSON.stringify({
+          body: {
             idProducto: idProducto,
             cantidad: qty,
             tipo: 'ENTRADA',
             observacion: ref || null
-          })
+          }
         });
         
         if (!response.success) {

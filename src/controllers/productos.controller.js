@@ -69,4 +69,38 @@ async function updateProducto(req, res) {
   }
 }
 
-module.exports = { createProducto, listProductos, getProducto, updateProducto };
+async function deleteProducto(req, res) {
+  try {
+    const { codigo } = req.params;
+    if (!codigo) return res.status(400).json({ success: false, message: 'Código requerido' });
+    
+    const usuario = req.user?.usuario || 'sistema';
+    const eliminacionFisica = req.body?.eliminacionFisica === true || req.query?.fisica === 'true';
+    
+    const result = await service.deleteProductoByCodigo({ 
+      codigo, 
+      eliminacionFisica,
+      usuarioEjecutor: usuario
+    });
+    
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false, 
+        message: result.mensaje 
+      });
+    }
+    
+    return res.json({ 
+      success: true, 
+      message: result.mensaje
+    });
+  } catch (err) {
+    if (err && err.code === 'NOT_FOUND') {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+    }
+    console.error('deleteProducto error:', err);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}
+
+module.exports = { createProducto, listProductos, getProducto, updateProducto, deleteProducto };

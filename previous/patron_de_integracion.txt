@@ -1,0 +1,86 @@
+// 1. Función para cargar datos
+async function loadData() {
+  try {
+    showLoading();
+    const response = await fetch('/api/endpoint');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Error desconocido');
+    }
+    
+    return result.data;
+  } catch (error) {
+    console.error('Error:', error);
+    showToast(error.message, 'error');
+    return null;
+  } finally {
+    hideLoading();
+  }
+}
+
+// 2. Función para crear/actualizar
+async function saveData(data, id = null) {
+  try {
+    showLoading();
+    const url = id ? `/api/endpoint/${id}` : '/api/endpoint';
+    const method = id ? 'PUT' : 'POST';
+    
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al guardar');
+    }
+    
+    const result = await response.json();
+    showToast(result.message || 'Guardado exitosamente', 'success');
+    return result;
+  } catch (error) {
+    console.error('Error:', error);
+    showToast(error.message, 'error');
+    return null;
+  } finally {
+    hideLoading();
+  }
+}
+
+// 3. Función para eliminar
+async function deleteData(id) {
+  if (!confirm('¿Está seguro de eliminar este registro?')) {
+    return false;
+  }
+  
+  try {
+    showLoading();
+    const response = await fetch(`/api/endpoint/${id}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al eliminar');
+    }
+    
+    const result = await response.json();
+    showToast(result.message || 'Eliminado exitosamente', 'success');
+    return true;
+  } catch (error) {
+    console.error('Error:', error);
+    showToast(error.message, 'error');
+    return false;
+  } finally {
+    hideLoading();
+  }
+}

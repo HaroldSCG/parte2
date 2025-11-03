@@ -76,7 +76,36 @@ async function consultarStock(idProducto = null, stockMinimo = 10) {
   }
 }
 
+/**
+ * Consultar movimientos de inventario (bitácora)
+ * @param {Object} filtros - Filtros opcionales
+ * @param {number} filtros.idProducto - ID del producto
+ * @param {string} filtros.tipo - Tipo de movimiento (ENTRADA, SALIDA, AJUSTE, COMPRA)
+ * @param {Date} filtros.fechaDesde - Fecha inicial
+ * @param {Date} filtros.fechaHasta - Fecha final
+ * @param {number} filtros.limite - Límite de registros (default: 100)
+ * @returns {Array} Lista de movimientos
+ */
+async function consultarMovimientos(filtros = {}) {
+  try {
+    const p = await getPool();
+    const request = p.request();
+    request.input('IdProducto', sql.Int, filtros.idProducto || null);
+    request.input('Tipo', sql.VarChar(20), filtros.tipo || null);
+    request.input('FechaDesde', sql.DateTime2(0), filtros.fechaDesde || null);
+    request.input('FechaHasta', sql.DateTime2(0), filtros.fechaHasta || null);
+    request.input('Limite', sql.Int, filtros.limite || 100);
+    
+    const result = await request.execute('com.sp_ConsultarMovimientosInventario');
+    return result.recordset;
+  } catch (error) {
+    console.error('Error en consultarMovimientos:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   registrarMovimiento,
-  consultarStock
+  consultarStock,
+  consultarMovimientos
 };

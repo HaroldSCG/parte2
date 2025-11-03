@@ -20,4 +20,16 @@ router.post('/movimiento', controller.registrarMovimiento);
  */
 router.get('/stock', controller.consultarStock);
 
+/**
+ * @route GET /api/inventario/movimientos
+ * @desc Consultar movimientos de inventario (bitácora)
+ * @query idProducto - Number (opcional) - Filtrar por producto
+ * @query tipo - String (opcional) - Tipo: ENTRADA, SALIDA, AJUSTE, COMPRA
+ * @query fechaDesde - Date (opcional) - Fecha inicial
+ * @query fechaHasta - Date (opcional) - Fecha final
+ * @query limite - Number (default: 100) - Límite de registros
+ * @access Private
+ */
+router.get('/movimientos', controller.consultarMovimientos);
+
 module.exports = router;

@@ -2977,6 +2977,39 @@ BEGIN
 END;
 GO
 
+-- Consultar movimientos de inventario (bitácora)
+IF OBJECT_ID('com.sp_ConsultarMovimientosInventario','P') IS NOT NULL DROP PROCEDURE com.sp_ConsultarMovimientosInventario;
+GO
+CREATE PROCEDURE com.sp_ConsultarMovimientosInventario
+    @IdProducto INT = NULL,
+    @Tipo VARCHAR(20) = NULL,
+    @FechaDesde DATETIME2(0) = NULL,
+    @FechaHasta DATETIME2(0) = NULL,
+    @Limite INT = 100
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT TOP (@Limite)
+        i.IdMovimiento,
+        i.IdProducto,
+        p.Codigo AS CodigoProducto,
+        p.Nombre AS NombreProducto,
+        i.Cantidad,
+        i.Tipo,
+        i.Usuario,
+        i.FechaMovimiento,
+        i.Observacion
+    FROM com.tbInventario i
+    INNER JOIN com.tbProducto p ON i.IdProducto = p.IdProducto
+    WHERE (@IdProducto IS NULL OR i.IdProducto = @IdProducto)
+      AND (@Tipo IS NULL OR i.Tipo = @Tipo)
+      AND (@FechaDesde IS NULL OR i.FechaMovimiento >= @FechaDesde)
+      AND (@FechaHasta IS NULL OR i.FechaMovimiento <= @FechaHasta)
+    ORDER BY i.FechaMovimiento DESC;
+END;
+GO
+
 ------------------------------------------------------------
 -- 6.8. PROCEDIMIENTOS PARA VENTAS
 ------------------------------------------------------------

@@ -93,7 +93,37 @@ async function consultarStock(req, res) {
   }
 }
 
+/**
+ * Consultar movimientos de inventario (bitácora)
+ * GET /api/inventario/movimientos?idProducto=1&tipo=ENTRADA&limite=50
+ */
+async function consultarMovimientos(req, res) {
+  try {
+    const filtros = {
+      idProducto: req.query.idProducto ? parseInt(req.query.idProducto) : null,
+      tipo: req.query.tipo || null,
+      fechaDesde: req.query.fechaDesde ? new Date(req.query.fechaDesde) : null,
+      fechaHasta: req.query.fechaHasta ? new Date(req.query.fechaHasta) : null,
+      limite: req.query.limite ? parseInt(req.query.limite) : 100
+    };
+    
+    const movimientos = await service.consultarMovimientos(filtros);
+    
+    return res.json({
+      success: true,
+      data: movimientos
+    });
+  } catch (error) {
+    console.error('Error en consultarMovimientos:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al consultar movimientos'
+    });
+  }
+}
+
 module.exports = {
   registrarMovimiento,
-  consultarStock
+  consultarStock,
+  consultarMovimientos
 };

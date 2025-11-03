@@ -225,31 +225,6 @@
           }
         ]
       },
-      inventario: {
-        subtitle: 'Actualizaciones automticas tras compras y ventas.',
-        stats: [
-          { label: 'Entradas del mes', value: '+1,280', trend: 'Compras registradas', icon: 'fa-arrow-trend-up', tone: 'info' },
-          { label: 'Salidas del mes', value: '-1,045', trend: 'Ventas procesadas', icon: 'fa-arrow-trend-down', tone: 'warning' },
-          { label: 'Stock disponible', value: '6,420', trend: 'Artculos en bodega', icon: 'fa-cubes', tone: 'success' }
-        ],
-        timeline: [
-          { time: '18/05 - 10:24', action: 'Entrada', detail: '120 Kits de laboratorio (Compra PO-5721)', actor: 'admin' },
-          { time: '18/05 - 08:05', action: 'Salida', detail: '45 Calculadoras cientficas (Venta #934)', actor: 'secretaria02' },
-          { time: '17/05 - 18:12', action: 'Ajuste', detail: 'Regularizacin inventario aula B-102', actor: 'admin' },
-          { time: '17/05 - 11:47', action: 'Salida', detail: '60 Batas laboratorio (Venta #928)', actor: 'secretaria01' }
-        ],
-        alerts: [
-          { type: 'warning', title: 'Pipetas automticas', description: 'Stock actual 12 / mnimo 25.' },
-          { type: 'warning', title: 'Reactivo A-90', description: 'Existencias para 4 das de consumo.' },
-          { type: 'info', title: 'Lotes prximos a vencer', description: '3 lotes vencen el 30/05.' }
-        ],
-        critical: [
-          { code: 'LAB-0021', product: 'Reactivo A-90', categories: ['Laboratorio'], available: 18, minimum: 40 },
-          { code: 'TEC-0312', product: 'Calculadora cientfica FX', categories: ['Tecnologa', 'Papelera'], available: 22, minimum: 35 },
-          { code: 'LAB-0045', product: 'Pipeta automtica 10ml', categories: ['Laboratorio'], available: 12, minimum: 25 },
-          { code: 'PAP-0718', product: 'Cuaderno profesional', categories: ['Papelera'], available: 48, minimum: 80 }
-        ]
-      },
       ventas: {
         subtitle: '.',
         stats: [
@@ -363,27 +338,6 @@
               { label: 'Vie', value: 10 }
             ]
           }
-        ]
-      },
-      inventario: {
-        subtitle: 'Consulta existencias antes de confirmar ventas.',
-        stats: [
-          { label: 'Movimientos hoy', value: '24', trend: 'Entradas + salidas', icon: 'fa-right-left', tone: 'info' },
-          { label: 'Stock disponible', value: '6,420', trend: 'Artculos en bodega', icon: 'fa-cubes', tone: 'success' }
-        ],
-        timeline: [
-          { time: '18/05 - 14:57', action: 'Salida', detail: 'Calculadoras cientficas (Venta #934)', actor: 'secretaria02' },
-          { time: '18/05 - 11:32', action: 'Salida', detail: 'Reactivo A-90 (Venta #930)', actor: 'secretaria01' },
-          { time: '18/05 - 09:05', action: 'Entrada', detail: 'Cuadernos profesionales (Reposicin)', actor: 'admin' }
-        ],
-        alerts: [
-          { type: 'warning', title: 'Reactivo A-90', description: 'Stock 18 / mnimo 40.' },
-          { type: 'warning', title: 'Kits de laboratorio', description: 'Stock 32 / mnimo 50.' }
-        ],
-        critical: [
-          { code: 'LAB-0021', product: 'Reactivo A-90', categories: ['Laboratorio'], available: 18, minimum: 40 },
-          { code: 'LAB-0045', product: 'Pipeta automtica 10ml', categories: ['Laboratorio'], available: 12, minimum: 25 },
-          { code: 'PAP-0718', product: 'Cuaderno profesional', categories: ['Papelera'], available: 48, minimum: 80 }
         ]
       },
       ventas: {
@@ -1293,14 +1247,40 @@
     // Ya no usamos DASHBOARD_DATA - cada módulo carga sus datos dinámicamente
     // Renderizar overview solo si existe en el DOM
     if (sections.overview && document.getElementById('overviewStats')) {
-      renderOverview();
+      try {
+        renderOverview();
+      } catch (err) {
+        console.error('Error renderizando overview:', err);
+      }
     }
-    renderReportes();
-    renderInventario();
-    renderVentas();
+    
+    try {
+      renderReportes();
+    } catch (err) {
+      console.error('Error renderizando reportes:', err);
+    }
+    
+    // renderInventario es async - necesita manejo especial
+    renderInventario().catch(err => {
+      console.error('Error renderizando inventario:', err);
+    });
+    
+    try {
+      renderVentas();
+    } catch (err) {
+      console.error('Error renderizando ventas:', err);
+    }
+    
     if (currentRole === 'admin') {
-      renderProductos();
-      renderCategorias();
+      try {
+        renderProductos();
+      } catch (err) {
+        console.error('Error renderizando productos:', err);
+      }
+      
+      renderCategorias().catch(err => {
+        console.error('Error renderizando categorías:', err);
+      });
     }
   }
 
@@ -2014,17 +1994,39 @@
   // - initInventoryModule() - Inicialización del módulo
   // ============================================================================
 
-  function renderInventario() {
-    // Temporalmente usando DASHBOARD_DATA hasta completar refactorización
-    const data = DASHBOARD_DATA[role]?.inventario;
+  async function renderInventario() {
+    // Cargar datos desde API
+    const result = await loadInventarioData();
+    const data = result.data;
+    
     if (!data) return;
+    
     document.getElementById('inventorySubtitle').textContent = data.subtitle || '';
     buildStats(document.getElementById('inventoryStats'), data.stats);
     buildTimeline(document.getElementById('inventoryTimeline'), data.timeline);
     buildAlerts(document.getElementById('inventoryAlerts'), data.alerts);
     buildInventoryTable(document.querySelector('#inventoryTable tbody'), data.critical);
     ensureInventoryMovementsPaginationUI();
-    initInventoryModule();
+    
+    // Configurar el modal de entrada (usa el modal del HTML)
+    setupInventoryEntryModal();
+    
+    // Configurar el botón de nueva entrada
+    const newEntryBtn = document.getElementById('inventoryNewEntryBtn');
+    if (newEntryBtn) {
+      newEntryBtn.onclick = () => {
+        // Limpiar y abrir modal
+        const form = document.getElementById('inventoryEntryForm');
+        if (form) form.reset();
+        const prodInput = document.getElementById('invEntryProdInput');
+        if (prodInput) prodInput.removeAttribute('data-product-id');
+        setInvEntryMessage('', '');
+        modalManager.open('inventoryEntryModal');
+      };
+    }
+    
+    // Cargar movimientos de inventario
+    await renderInventoryMovements();
   }
 
   // Garantiza que los controles de paginación de la bitácora existan en el DOM
@@ -2068,100 +2070,56 @@
 
   // Estado simple en memoria (solo UI)
   window.inventoryMovements = window.inventoryMovements || [];
-  function initInventoryModule() {
-    document.getElementById('inventoryNewEntryBtn')?.addEventListener('click', () => {
-      // Prefill fecha
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      const v = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
-      const dateEl = document.getElementById('invDate');
-      if (dateEl) dateEl.value = v;
-      document.getElementById('invProdInput').value = '';
-      document.getElementById('invQuantity').value = '';
-      document.getElementById('invRef').value = '';
-      clearInvFormMessage();
-      modalManager.open('inventoryMovementModal');
-    });
 
-    // Autocomplete producto usando lista de productos del dashboard
-    const invInput = document.getElementById('invProdInput');
-    const invResults = document.getElementById('invProdResults');
-    const products = (DASHBOARD_DATA.admin?.productos?.list || []).map(p => ({ code: p.code, name: p.name }));
-    function renderInvResults(term) {
-      const t = (term || '').toLowerCase().trim();
-      let matches = products;
-      if (t) matches = products.filter(p => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t));
-      matches = matches.slice(0, 8);
-      if (matches.length === 0) { invResults.style.display = 'none'; invResults.innerHTML = ''; return; }
-      invResults.innerHTML = matches.map(p => `<div class="result-item" data-code="${p.code}" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"><span>${p.code}  ${p.name}</span><i class="fas fa-arrow-turn-down"></i></div>`).join('');
-      invResults.style.display = 'block';
+  // Función para inicializar paginación de movimientos
+  function initInventoryMovementsPagination() {
+    const pageSizeSelect = document.getElementById('invMovPageSize');
+    const prevBtn = document.getElementById('invMovPrev');
+    const nextBtn = document.getElementById('invMovNext');
+
+    if (pageSizeSelect) {
+      pageSizeSelect.addEventListener('change', () => {
+        invMovPager.pageSize = parseInt(pageSizeSelect.value) || 10;
+        invMovPager.page = 1;
+        renderInventoryMovements();
+      });
     }
-    invInput?.addEventListener('input', () => renderInvResults(invInput.value));
-    invInput?.addEventListener('focus', () => renderInvResults(invInput.value));
-    if (invResults) {
-      document.addEventListener('click', (e) => {
-        if (invResults && !invResults.contains(e.target) && e.target !== invInput) {
-          invResults.style.display = 'none';
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        if (invMovPager.page > 1) {
+          invMovPager.page--;
+          renderInventoryMovements();
         }
       });
     }
-    invResults?.addEventListener('click', (e) => {
-      const item = e.target.closest('.result-item');
-      if (!item) return;
-      const code = item.getAttribute('data-code');
-      const prod = products.find(p => p.code === code);
-      if (!prod) return;
-      invInput.value = prod.code + ' | ' + prod.name;
-      invResults.style.display = 'none';
-    });
 
-    // Submit
-    document.getElementById('inventoryMovementForm')?.addEventListener('submit', handleInvSubmit);
-    document.getElementById('invFormSubmit')?.addEventListener('click', () => {
-      document.getElementById('inventoryMovementForm')?.requestSubmit();
-    });
-
-    // Eventos de paginación de bitácora
-    initInventoryMovementsPagination();
-
-    // Render inicial bitácora si ya hay
-    renderInventoryMovements();
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        const total = window.inventoryMovements?.length || 0;
+        const maxPage = Math.ceil(total / (invMovPager.pageSize || 10));
+        if (invMovPager.page < maxPage) {
+          invMovPager.page++;
+          renderInventoryMovements();
+        }
+      });
+    }
   }
 
-  function setInvFormMessage(type, msg) {
-    const c = document.getElementById('invFormMessage');
-    if (!c) return;
-    c.className = `message-container ${type}`;
-    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-triangle', info: 'fa-circle-info', warning: 'fa-exclamation-triangle' };
-    c.innerHTML = `<div class="message ${type}"><i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span></div>`;
-  }
-  function clearInvFormMessage() { const c = document.getElementById('invFormMessage'); if (c) { c.className = 'message-container'; c.innerHTML = ''; } }
-
-  function handleInvSubmit(e) {
-    e.preventDefault();
-    const prod = document.getElementById('invProdInput')?.value?.trim() || '';
-    const type = document.getElementById('invType')?.value || 'Entrada';
-    const qty = parseInt(document.getElementById('invQuantity')?.value || '0', 10);
-    const date = document.getElementById('invDate')?.value || '';
-    const ref = document.getElementById('invRef')?.value?.trim() || '';
-    if (!prod) return setInvFormMessage('error', 'Selecciona un producto.');
-    if (!qty || qty <= 0) return setInvFormMessage('error', 'Ingresa una cantidad vlida.');
-    // Guardar en bitcora en memoria
-    window.inventoryMovements.unshift({ date: date || new Date().toISOString(), type, product: prod, qty, ref });
-    modalManager.close('inventoryMovementModal');
-    showToast('Movimiento registrado.', 'success');
-    invMovPager.page = 1; // Ver el más reciente
-    renderInventoryMovements();
-  }
-
-  function renderInventoryMovements() {
+  async function renderInventoryMovements() {
     const tbody = document.querySelector('#inventoryMovementsTable tbody');
     const infoEl = document.getElementById('invMovPageInfo');
     const prevBtn = document.getElementById('invMovPrev');
     const nextBtn = document.getElementById('invMovNext');
     const pageSizeSelect = document.getElementById('invMovPageSize');
     if (!tbody) return;
-    const list = window.inventoryMovements || [];
+    
+    // Cargar movimientos desde API
+    const result = await loadInventoryMovements(invMovPager.pageSize || 100);
+    const list = result.movimientos || [];
+    
+    // Guardar en memoria para paginación local (temporal)
+    window.inventoryMovements = list;
 
     invMovPager.total = list.length;
     if (pageSizeSelect) {
@@ -2836,6 +2794,106 @@
       showToast(error.message || 'Error al cargar categorías', 'error');
       categoryState = [];
       return { success: false, error: error.message };
+    }
+  }
+
+  // ============================================================================
+  // FUNCIÓN: loadInventarioData() - Carga datos de inventario desde API
+  // ============================================================================
+  async function loadInventarioData() {
+    try {
+      // Cargar stock desde API
+      const stockResponse = await apiRequest(API_ENDPOINTS.inventarioStock);
+      
+      if (!stockResponse.success) {
+        throw new Error(stockResponse.message || 'Error al cargar stock');
+      }
+      
+      const stockData = stockResponse.data || [];
+      
+      // Normalizar datos para la UI
+      const inventarioData = {
+        subtitle: 'Stock actualizado desde la base de datos',
+        stats: [
+          { 
+            label: 'Productos en stock', 
+            value: stockData.length.toString(), 
+            trend: 'Total de productos', 
+            icon: 'fa-cubes', 
+            tone: 'success' 
+          },
+          { 
+            label: 'Stock crítico', 
+            value: stockData.filter(p => p.Existencia <= 10).length.toString(), 
+            trend: 'Requieren atención', 
+            icon: 'fa-exclamation-triangle', 
+            tone: 'warning' 
+          }
+        ],
+        timeline: [],
+        alerts: stockData
+          .filter(p => p.Existencia <= 10)
+          .slice(0, 3)
+          .map(p => ({
+            type: 'warning',
+            title: p.Nombre,
+            description: `Stock actual ${p.Existencia} unidades`
+          })),
+        critical: stockData
+          .filter(p => p.Existencia <= 10)
+          .map(p => ({
+            code: p.Codigo || `PROD-${p.IdProducto}`,
+            product: p.Nombre,
+            categories: [], // Se puede ampliar si hay relación con categorías
+            available: p.Existencia,
+            minimum: 10
+          }))
+      };
+      
+      return { success: true, data: inventarioData };
+    } catch (error) {
+      console.error('Error cargando inventario:', error);
+      showToast(error.message || 'Error al cargar inventario', 'error');
+      return { 
+        success: false, 
+        error: error.message,
+        data: {
+          subtitle: 'Error al cargar datos',
+          stats: [],
+          timeline: [],
+          alerts: [],
+          critical: []
+        }
+      };
+    }
+  }
+
+  // ============================================================================
+  // FUNCIÓN: loadInventoryMovements() - Carga movimientos desde API
+  // ============================================================================
+  async function loadInventoryMovements(limite = 100) {
+    try {
+      const response = await apiRequest(`${API_ENDPOINTS.inventarioMovimientos}?limite=${limite}`);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Error al cargar movimientos');
+      }
+      
+      // Normalizar datos de la API al formato de la UI
+      const movimientos = (response.data || []).map(m => ({
+        date: m.FechaMovimiento,
+        type: m.Tipo,
+        product: `${m.CodigoProducto} | ${m.NombreProducto}`,
+        qty: Math.abs(m.Cantidad),
+        ref: m.Observacion || '-',
+        usuario: m.Usuario
+      }));
+      
+      return { success: true, movimientos };
+    } catch (error) {
+      console.error('Error cargando movimientos:', error);
+      showToast(error.message || 'Error al cargar movimientos', 'error');
+      return { success: false, movimientos: [] };
     }
   }
 
@@ -4014,10 +4072,32 @@
       }
     });
 
-    // Confirmar eliminacin de producto (solo UI)
-    document.getElementById('deleteProductConfirmBtn')?.addEventListener('click', () => {
-      modalManager.close('productDeleteModal');
-      showToast('Producto eliminado correctamente.', 'success');
+    // Confirmar eliminación de producto - Llamar a la API
+    document.getElementById('deleteProductConfirmBtn')?.addEventListener('click', async () => {
+      if (!productTargetCode) {
+        showToast('Error: No se ha seleccionado un producto', 'error');
+        return;
+      }
+
+      try {
+        const response = await apiRequest(`/api/productos/${productTargetCode}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.success) {
+          throw new Error(response.message || 'Error al eliminar producto');
+        }
+
+        modalManager.close('productDeleteModal');
+        showToast(response.message || 'Producto eliminado correctamente', 'success');
+        
+        // Recargar lista de productos usando la función existente
+        productsPager.page = 1;
+        refreshProductTable();
+      } catch (error) {
+        console.error('Error eliminando producto:', error);
+        showToast(error.message || 'Error al eliminar el producto', 'error');
+      }
     });
 
     // Guardar edicin
@@ -4556,183 +4636,190 @@
     if (nextBtn) nextBtn.disabled = safePage >= maxPage;
   }
 
-  // === Inventario: redefinir render e inicializacion para UI con 3 subapartados ===
-  // VersiFFn legacy que reescribFe la secciFn completa. Renombrada para no sobreescribir la versiFn estFtica.
-  function renderInventarioLegacy(data) {
-    const subtitle = document.getElementById('inventorySubtitle');
-    if (subtitle) subtitle.textContent = (data && data.subtitle) ? data.subtitle : '';
-    initInventoryModule();
-  }
+  // === INTEGRACIÓN: Setup del modal inventoryEntryModal desde dashboard.html ===
+  // Esta función integra la funcionalidad de entrada usando el modal existente en el HTML
+  function setupInventoryEntryModal() {
+    // Configurar el modal de entrada usando los IDs del HTML existente
+    const modal = document.getElementById('inventoryEntryModal');
+    if (!modal) return;
+    
+    // Inicializar cache de productos si no existe
+    if (!window.productosCache) {
+      window.productosCache = [];
+    }
 
-  function initInventoryModule() {
-    const section = document.getElementById('inventarioSection');
-    if (!section) return;
-
-    section.innerHTML = [
-      '<div class="section-header">',
-      '  <h1>Gestion de Inventario</h1>',
-      '  <p id="inventorySubtitle"></p>',
-      '</div>',
-      '<div class="tabs-container">',
-      '  <div class="tabs-nav">',
-      '    <button class="tab-btn active" id="invTabEntryBtn"><i class="fas fa-arrow-down"></i> Entrada de productos</button>',
-      '    <button class="tab-btn" id="invTabLogBtn"><i class="fas fa-clipboard-list"></i> Bitacora</button>',
-      '  </div>',
-      '</div>',
-      '<div id="invEntryContent" class="bitacora-content active">',
-      '  <div class="panel-card">',
-      '    <div class="card-header"><h3><i class="fas fa-arrow-down"></i> Registrar entrada de stock</h3></div>',
-      '    <div class="panel-body" style="padding:16px;">',
-      '      <form id="invEntryForm">',
-      '        <div class="form-row">',
-      '          <div class="form-group" style="position:relative;">',
-      '            <label for="entryProductInput">Producto (codigo o nombre)</label>',
-      '            <input type="text" id="entryProductInput" placeholder="Ingresa codigo o nombre..." autocomplete="off" style="width:100%; padding:12px 16px; border:1px solid #e2e8f0; border-radius:8px;">',
-      '            <div id="entryProductResults" style="position:absolute; left:0; right:0; top:70px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.08); display:none; z-index:50; overflow:hidden;"></div>',
-      '          </div>',
-      '          <div class="form-group">',
-      '            <label for="entryQtyInput">Cantidad a ingresar</label>',
-      '            <input type="number" id="entryQtyInput" min="1" placeholder="0">',
-      '          </div>',
-      '        </div>',
-      '        <div class="form-row">',
-      '          <div class="form-group">',
-      '            <label for="entryDate">Fecha y hora</label>',
-      '            <input type="datetime-local" id="entryDate" readonly disabled>',
-      '          </div>',
-      '          <div class="form-group">',
-      '            <label for="entryRefInput">Referencia/Nota</label>',
-      '            <input type="text" id="entryRefInput" placeholder="Lote, factura de compra, etc.">',
-      '          </div>',
-      '        </div>',
-      '        <div class="message-container" id="entryFormMessage"></div>',
-      '      </form>',
-      '    </div>',
-      '    <div class="modal-footer" style="padding:12px 16px;">',
-      '      <button type="button" class="btn-secondary" id="entryClearBtn">Limpiar</button>',
-      '      <button type="button" class="btn-primary" id="entrySubmitBtn"><i class="fas fa-save"></i> Guardar entrada</button>',
-      '    </div>',
-      '  </div>',
-      '</div>',
-      '</div>',
-      '<div id="invLogContent" class="bitacora-content">',
-      '  <div class="panel-card">',
-      '    <div class="card-header"><h3>Bitacora de inventario</h3></div>',
-      '    <div class="table-responsive">',
-      '      <table class="data-table" id="inventoryMovementsTable">',
-      '        <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cantidad</th><th>Referencia</th></tr></thead>',
-      '        <tbody></tbody>',
-      '      </table>',
-      '    </div>',
-      '  </div>',
-      '</div>'
-    ].join('');
-
-    setupInventoryTabs();
-    setupInventoryEntry();
-    // Asegurar paginación en Bitácora (vista dinámica)
-    ensureInventoryMovementsPaginationUI();
-    initInventoryMovementsPagination();
-    renderInventoryMovements();
-  }
-
-  function setupInventoryTabs() {
-    const btnEntry = document.getElementById('invTabEntryBtn');
-    const btnLog = document.getElementById('invTabLogBtn');
-    const entry = document.getElementById('invEntryContent');
-    const log = document.getElementById('invLogContent');
-    if (!btnEntry || !btnLog || !entry || !log) return;
-    const activate = target => {
-      const map = { entry, log };
-      const btns = { entry: btnEntry, log: btnLog };
-      Object.entries(map).forEach(([key, el]) => el.classList.toggle('active', key === target));
-      Object.entries(btns).forEach(([key, b]) => b.classList.toggle('active', key === target));
-    };
-    btnEntry.onclick = () => activate('entry');
-    btnLog.onclick = () => {
-      activate('log');
-      // Garantizar que los controles de paginación existan al abrir Bitácora
-      ensureInventoryMovementsPaginationUI();
-      initInventoryMovementsPagination();
-      renderInventoryMovements();
-    };
-  }
-
-  function setupInventoryEntry() {
-    const dateEl = document.getElementById('entryDate');
+    const dateEl = document.getElementById('invEntryDate');
     if (dateEl) {
       const now = new Date();
       const pad = n => String(n).padStart(2, '0');
       dateEl.value = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
     }
 
-    const products = (DASHBOARD_DATA[role]?.productos?.list || DASHBOARD_DATA.admin?.productos?.list || []).map(p => ({ code: p.code, name: p.name }));
-    const input = document.getElementById('entryProductInput');
-    const box = document.getElementById('entryProductResults');
-    invCreateAutocomplete(input, box, products, (prod) => {
-      input.value = prod.code + ' | ' + prod.name;
-      box.style.display = 'none';
-    });
-
-    document.getElementById('entryClearBtn')?.addEventListener('click', () => {
-      input.value = '';
-      const q = document.getElementById('entryQtyInput'); if (q) q.value = '';
-      const r = document.getElementById('entryRefInput'); if (r) r.value = '';
-      invClearMessage('entryFormMessage');
-    });
-
-    document.getElementById('entrySubmitBtn')?.addEventListener('click', () => {
-      const prod = (input?.value || '').trim();
-      const qty = parseInt(document.getElementById('entryQtyInput')?.value || '0', 10);
-      // Fecha y hora no editable: siempre usar fecha/hora actuales del sistema
-      const date = new Date().toISOString();
-      const ref = document.getElementById('entryRefInput')?.value || '';
-      if (!prod) return invSetMessage('entryFormMessage', 'error', 'Selecciona un producto.');
-      if (!qty || qty <= 0) return invSetMessage('entryFormMessage', 'error', 'Ingresa una cantidad valida.');
-      window.inventoryMovements.unshift({ date, type: 'Entrada', product: prod, qty, ref });
-      invSetMessage('entryFormMessage', 'success', 'Entrada registrada.');
-      renderInventoryMovements();
-    });
-  }
-
-  // setupInventorySales eliminado por solicitud: solo Entrada y Bitacora
-
-  function invCreateAutocomplete(input, resultsBox, sourceList, onSelect, options = {}) {
-    if (!input || !resultsBox) return;
-    const render = (term) => {
-      const t = (term || '').toLowerCase().trim();
-      let matches = sourceList || [];
-      if (t) matches = matches.filter(p => (p.code || '').toLowerCase().includes(t) || (p.name || '').toLowerCase().includes(t));
-      matches = matches.slice(0, 8);
-      if (!matches.length) { resultsBox.style.display = 'none'; resultsBox.innerHTML = ''; return; }
-      resultsBox.innerHTML = matches.map(p => `<div class=\"result-item\" data-code=\"${p.code}\" style=\"padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;\"><span>${p.code} | ${p.name}</span><i class=\"fas fa-arrow-turn-down\"></i></div>`).join('');
-      resultsBox.style.display = 'block';
-    };
-    input.addEventListener('input', () => render(input.value));
-    if (options.showOnFocus !== false) {
-      input.addEventListener('focus', () => render(input.value));
+    // Cargar productos desde API
+    async function loadProductsForEntry() {
+      try {
+        const response = await apiRequest(API_ENDPOINTS.productos);
+        if (response.success && response.data) {
+          window.productosCache = response.data.map(p => ({
+            id: p.IdProducto,
+            code: p.Codigo,
+            name: p.Nombre
+          }));
+        }
+      } catch (err) {
+        console.error('Error cargando productos:', err);
+        // Usar array vacío si hay error
+        window.productosCache = [];
+      }
     }
-    document.addEventListener('click', (e) => {
-      if (resultsBox && !resultsBox.contains(e.target) && e.target !== input) resultsBox.style.display = 'none';
-    });
-    resultsBox.addEventListener('click', (e) => {
-      const item = e.target.closest('.result-item');
-      if (!item) return;
-      const code = item.getAttribute('data-code');
-      const prod = (sourceList || []).find(p => p.code === code);
-      if (!prod) return;
-      onSelect(prod);
-    });
-  }
 
-  function invSetMessage(containerId, type, msg) {
-    const c = document.getElementById(containerId);
-    if (!c) return;
-    c.className = `message-container ${type}`;
-    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-triangle', info: 'fa-circle-info', warning: 'fa-exclamation-triangle' };
-    c.innerHTML = `<div class=\"message ${type}\"><i class=\"fas ${icons[type] || icons.info}\"></i><span>${msg}</span></div>`;
+    // Inicializar autocomplete
+    const input = document.getElementById('invEntryProdInput');
+    const box = document.getElementById('invEntryProdResults');
+    
+    if (input && box) {
+      input.addEventListener('input', () => {
+        const term = (input.value || '').toLowerCase().trim();
+        const products = window.productosCache || [];
+        let matches = products;
+        if (term) {
+          matches = products.filter(p => 
+            p.code.toLowerCase().includes(term) || 
+            p.name.toLowerCase().includes(term)
+          );
+        }
+        matches = matches.slice(0, 8);
+        
+        if (!matches.length) {
+          box.style.display = 'none';
+          box.innerHTML = '';
+          return;
+        }
+        
+        box.innerHTML = matches.map(p => `
+          <div class="result-item" data-product-id="${p.id}" data-code="${p.code}" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+            <span>${p.code} | ${p.name}</span>
+            <i class="fas fa-arrow-turn-down"></i>
+          </div>
+        `).join('');
+        box.style.display = 'block';
+      });
+
+      input.addEventListener('focus', () => {
+        if (input.value) input.dispatchEvent(new Event('input'));
+      });
+
+      box.addEventListener('click', (e) => {
+        const item = e.target.closest('.result-item');
+        if (!item) return;
+        const id = item.getAttribute('data-product-id');
+        const code = item.getAttribute('data-code');
+        const products = window.productosCache || [];
+        const prod = products.find(p => p.id === parseInt(id));
+        if (prod) {
+          input.value = prod.code + ' | ' + prod.name;
+          input.setAttribute('data-product-id', prod.id);
+          box.style.display = 'none';
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (box && !box.contains(e.target) && e.target !== input) {
+          box.style.display = 'none';
+        }
+      });
+    }
+
+    // Manejador de submit
+    const form = document.getElementById('inventoryEntryForm');
+    const submitBtn = document.getElementById('invEntryFormSubmit');
+    
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      
+      const prodInput = document.getElementById('invEntryProdInput');
+      const qtyInput = document.getElementById('invEntryQuantity');
+      const refInput = document.getElementById('invEntryRef');
+      const msgContainer = document.getElementById('invEntryFormMessage');
+      
+      const idProducto = parseInt(prodInput?.getAttribute('data-product-id'));
+      const qty = parseInt(qtyInput?.value || '0', 10);
+      const ref = refInput?.value?.trim() || '';
+      
+      // Validaciones
+      if (!idProducto || isNaN(idProducto)) {
+        setInvEntryMessage('error', 'Selecciona un producto válido de la lista.');
+        return;
+      }
+      
+      if (!qty || qty <= 0) {
+        setInvEntryMessage('error', 'Ingresa una cantidad válida mayor a 0.');
+        return;
+      }
+      
+      setInvEntryMessage('info', 'Registrando entrada...');
+      
+      try {
+        const response = await apiRequest('/api/inventario/movimiento', {
+          method: 'POST',
+          body: JSON.stringify({
+            idProducto: idProducto,
+            cantidad: qty,
+            tipo: 'ENTRADA',
+            observacion: ref || null
+          })
+        });
+        
+        if (!response.success) {
+          throw new Error(response.message || 'Error al registrar entrada');
+        }
+        
+        setInvEntryMessage('success', 'Entrada registrada correctamente.');
+        showToast('Entrada de inventario registrada', 'success');
+        
+        // Limpiar formulario
+        form.reset();
+        prodInput.removeAttribute('data-product-id');
+        
+        // Recargar datos de inventario
+        await renderInventario();
+        
+        // Cerrar modal después de un momento
+        setTimeout(() => {
+          modalManager.close('inventoryEntryModal');
+          setInvEntryMessage('', '');
+        }, 1200);
+        
+      } catch (err) {
+        console.error('Error registrando entrada:', err);
+        setInvEntryMessage('error', err.message || 'No se pudo registrar la entrada.');
+      }
+    };
+    
+    form?.addEventListener('submit', handleSubmit);
+    submitBtn?.addEventListener('click', () => form?.requestSubmit());
+    
+    // Cargar productos al inicio
+    loadProductsForEntry();
   }
-  function invClearMessage(containerId) { const c = document.getElementById(containerId); if (c) { c.className = 'message-container'; c.innerHTML = ''; } }
+  
+  function setInvEntryMessage(type, msg) {
+    const c = document.getElementById('invEntryFormMessage');
+    if (!c) return;
+    if (!type || !msg) {
+      c.className = 'message-container';
+      c.innerHTML = '';
+      return;
+    }
+    c.className = `message-container ${type}`;
+    const icons = { 
+      success: 'fa-check-circle', 
+      error: 'fa-exclamation-triangle', 
+      info: 'fa-circle-info', 
+      warning: 'fa-exclamation-triangle' 
+    };
+    c.innerHTML = `<div class="message ${type}"><i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span></div>`;
+  }
 })();
 
 // Reports base layout reset (global helper, sin Indicadores)

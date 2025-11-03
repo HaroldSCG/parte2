@@ -284,4 +284,32 @@ async function updateProductoByCodigo({ codigo, nombre, precioCosto, precioVenta
   return updated;
 }
 
-module.exports = { createProducto, listProductos, getProductoByCodigo, updateProductoByCodigo };
+async function deleteProductoByCodigo({ codigo, eliminacionFisica = false, usuarioEjecutor = 'sistema' }) {
+  const p = await getPool();
+  const code = String(codigo || '').trim();
+  
+  // Obtener IdProducto desde com.tbProducto
+  const prod = await p.request().input('Codigo', sql.VarChar(30), code)
+    .query('SELECT TOP 1 IdProducto FROM com.tbProducto WHERE Codigo = @Codigo');
+  if (prod.recordset.length === 0) {
+    const e = new Error('Producto no encontrado'); e.code = 'NOT_FOUND'; throw e;
+  }
+  const idProd = prod.recordset[0].IdProducto;
+
+  // Ejecutar stored procedure
+  const request = p.request();
+  request.input('Usuario', sql.VarChar(50), usuarioEjecutor);
+  request.input('IdProducto', sql.Int, idProd);
+  request.input('EliminacionFisica', sql.Bit, eliminacionFisica ? 1 : 0);
+  request.output('Mensaje', sql.NVarChar(200));
+  
+  const result = await request.execute('com.sp_EliminarProducto');
+  
+  return {
+    success: result.returnValue >= 0,
+    mensaje: result.output.Mensaje,
+    eliminacionFisica
+  };
+}
+
+module.exports = { createProducto, listProductos, getProductoByCodigo, updateProductoByCodigo, deleteProductoByCodigo };

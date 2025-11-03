@@ -27,5 +27,6 @@ router.post('/', createLimiter, validateCreate, controller.createProducto);
 router.get('/', controller.listProductos);
 router.get('/:codigo', controller.getProducto);
 router.put('/:codigo', controller.updateProducto);
+router.delete('/:codigo', controller.deleteProducto);
 
 module.exports = router;

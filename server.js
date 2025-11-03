@@ -25,10 +25,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 
-// Configuración de conexión a SQL Server (simplificada y funcional)
+// Configuración de conexión a SQL Server desde .env
+const dbServer = process.env.DB_SERVER || 'localhost\\SQLEXPRESS';
+const dbName = process.env.DB_DATABASE || 'AcademicoDB';
+const dbUser = process.env.DB_USER;
+const dbPass = process.env.DB_PASSWORD;
+const odbcDriver = process.env.ODBC_DRIVER || 'ODBC Driver 18 for SQL Server';
+const encrypt = process.env.DB_ENCRYPT || 'no';
+const trustCert = process.env.DB_TRUST_CERT || 'yes';
+const useTrusted = !dbUser || !dbPass;
+
+const connectionString = `Driver={${odbcDriver}};Server=${dbServer};Database=${dbName};` +
+  (useTrusted ? 'Trusted_Connection=Yes;' : `Trusted_Connection=No;Uid=${dbUser};Pwd=${dbPass};`) +
+  `Encrypt=${encrypt};TrustServerCertificate=${trustCert};`;
+
 const dbConfig = {
-  connectionString:
-    "Driver={ODBC Driver 18 for SQL Server};Server=DESKTOP-C6TF6NG\\SQLEXPRESS;Database=AcademicoDB;Trusted_Connection=Yes;Encrypt=no;"
+  connectionString
 };
 
 
@@ -38,12 +50,21 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-// Montar router de productos (modularizado)
+// Montar routers modulares de comercio
 try {
   const productosRouter = require('./src/routes/productos.routes');
+  const categoriasRouter = require('./src/routes/categorias.routes');
+  const inventarioRouter = require('./src/routes/inventario.routes');
+  const ventasRouter = require('./src/routes/ventas.routes');
+  const reportesRouter = require('./src/routes/reportes.routes');
+
   app.use('/api/productos', productosRouter);
+  app.use('/api/categorias', categoriasRouter);
+  app.use('/api/inventario', inventarioRouter);
+  app.use('/api/ventas', ventasRouter);
+  app.use('/api/reportes', reportesRouter);
 } catch (e) {
-  console.error('No se pudo montar productosRouter:', e && e.message ? e.message : e);
+  console.error('No se pudo montar routers de comercio:', e && e.message ? e.message : e);
 }
 
 app.post('/api/login', verifyRecaptcha, async (req, res) => {

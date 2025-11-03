@@ -3307,4 +3307,45 @@ SELECT @idVenta, IdProducto, 2, 2.00, 0.00 FROM com.tbProducto WHERE Codigo = 'P
 INSERT INTO com.tbDetalleVenta (IdVenta, IdProducto, Cantidad, PrecioUnitario, Descuento)
 SELECT @idVenta, IdProducto, 1, 15.00, 0.00 FROM com.tbProducto WHERE Codigo = 'USB-001';
 
+GO
 
+-- =============================================
+-- ESQUEMA inv (para compatibilidad con código existente)
+-- =============================================
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'inv')
+BEGIN
+    EXEC('CREATE SCHEMA inv');
+END
+GO
+
+-- =============================================
+-- VISTA: inv.v_productos
+-- Propósito: Vista compatible con productos.service.js
+-- Une productos con categorías agregadas y stock actual
+-- =============================================
+IF OBJECT_ID('inv.v_productos', 'V') IS NOT NULL
+    DROP VIEW inv.v_productos;
+GO
+
+CREATE VIEW inv.v_productos AS
+SELECT 
+    p.IdProducto,
+    p.Codigo,
+    p.Nombre,
+    p.Descripcion,
+    p.PrecioCosto,
+    p.PrecioVenta,
+    p.Descuento,
+    p.Estado,
+    p.FechaRegistro,
+    ISNULL(s.Existencia, 0) AS Cantidad,
+    STUFF((
+        SELECT '; ' + c.Nombre
+        FROM com.tbProductoCategoria pc
+        INNER JOIN com.tbCategoria c ON pc.IdCategoria = c.IdCategoria
+        WHERE pc.IdProducto = p.IdProducto AND c.Activo = 1
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS Categorias
+FROM com.tbProducto p
+LEFT JOIN com.tbStock s ON p.IdProducto = s.IdProducto;
+GO

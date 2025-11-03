@@ -1,17 +1,18 @@
+require('dotenv').config();
 const sql = require('mssql/msnodesqlv8');
 
-// Construir cadena de conexión desde env (igual que server)
+// Construir cadena de conexión desde env
 const dbServer = process.env.DB_SERVER || 'localhost\\SQLEXPRESS';
-const dbName = process.env.DB_DATABASE || 'DB_parte2';
-const dbUser = process.env.DB_USER || '';
-const dbPass = process.env.DB_PASSWORD || '';
-const odbcDriver = process.env.ODBC_DRIVER || 'ODBC Driver 17 for SQL Server';
-const encryptYes = String(process.env.DB_ENCRYPT || 'No').toLowerCase() === 'yes';
-const trustCertYes = String(process.env.DB_TRUST_CERT || 'Yes').toLowerCase() === 'yes';
+const dbName = process.env.DB_DATABASE || 'AcademicoDB';
+const dbUser = process.env.DB_USER;
+const dbPass = process.env.DB_PASSWORD;
+const odbcDriver = process.env.ODBC_DRIVER || 'ODBC Driver 18 for SQL Server';
+const encrypt = process.env.DB_ENCRYPT || 'no';
+const trustCert = process.env.DB_TRUST_CERT || 'yes';
 const useTrusted = !dbUser || !dbPass;
 const connectionString = `Driver={${odbcDriver}};Server=${dbServer};Database=${dbName};` +
   (useTrusted ? 'Trusted_Connection=Yes;' : `Trusted_Connection=No;Uid=${dbUser};Pwd=${dbPass};`) +
-  `Encrypt=${encryptYes ? 'Yes' : 'No'};TrustServerCertificate=${trustCertYes ? 'Yes' : 'No'};`;
+  `Encrypt=${encrypt};TrustServerCertificate=${trustCert};`;
 
 let pool;
 async function getPool() {

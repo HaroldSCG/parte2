@@ -989,7 +989,12 @@
   }
 
   async function openCategoryProducts(categoryId) {
+    console.log('=== DEBUG: openCategoryProducts iniciado ===');
+    console.log('Category ID:', categoryId);
+    
     const category = getCategoryById(categoryId);
+    console.log('Category found:', category);
+    
     if (!category) {
       showToast('Categoría no encontrada.', 'error');
       return;
@@ -1029,10 +1034,13 @@
 
     // Abrir modal inmediatamente
     modalManager.open('categoryProductsModal');
+    console.log('Modal abierto, iniciando carga de productos...');
 
     try {
       // Cargar productos desde API filtrados por categoría
+      console.log('Llamando a getProductsForCategory con:', category.name);
       const products = await getProductsForCategory(category.name);
+      console.log('Productos cargados:', products.length, products);
       
       const count = products.length;
       if (helperEl) {
@@ -2315,8 +2323,10 @@
       '        </div>',
       '        <div class="form-group">',
       '          <label for="posQtyInput">Cantidad</label>',
-      '          <input type="number" id="posQtyInput" min="1" title="Presiona Enter para agregar">',
-      '          <small style="display:block; color:#64748b;">Presiona Enter para agregar</small>',
+      '          <input type="number" id="posQtyInput" min="1" value="1" title="Ingresa cantidad">',
+      '        </div>',
+      '        <div class="form-group" style="display:flex; align-items:flex-end;">',
+      '          <button type="button" class="btn btn-primary" id="posAddToCartBtn" style="width:100%; padding:12px;"><i class="fas fa-cart-plus"></i> Agregar al carrito</button>',
       '        </div>',
       '      </div>',
       '      <div class="form-row">',
@@ -2335,7 +2345,7 @@
       '      </div>',
       '      <div class="table-responsive">',
       '        <table class="data-table" id="salesCartTable">',
-      '          <thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Acciones</th></tr></thead>',
+      '          <thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Precio Unitario</th><th>Subtotal</th><th>Acciones</th></tr></thead>',
       '          <tbody id="salesCartBody"></tbody>',
       '        </table>',
       '      </div>',
@@ -2355,12 +2365,78 @@
       '</div>',
       '<div id="salesLogContent" class="bitacora-content">',
       '  <div class="panel-card">',
-      '    <div class="card-header"><h3>Bitácora de ventas</h3></div>',
+      '    <div class="card-header">',
+      '      <h3><i class="fas fa-history"></i> Bitácora de ventas</h3>',
+      '      <div style="display:flex; gap:8px; align-items:center;">',
+      '        <button type="button" class="btn btn-secondary btn-sm" id="salesLogFiltersBtn"><i class="fas fa-filter"></i> Filtros</button>',
+      '        <button type="button" class="btn btn-primary btn-sm" id="salesLogRefreshBtn"><i class="fas fa-sync"></i> Actualizar</button>',
+      '      </div>',
+      '    </div>',
+      '    <div class="filters-container" id="salesLogFiltersContainer" style="display:none; padding:16px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">',
+      '      <div class="form-row">',
+      '        <div class="form-group">',
+      '          <label for="salesLogSearchInput"><i class="fas fa-search"></i> Buscar venta</label>',
+      '          <input type="text" id="salesLogSearchInput" placeholder="ID de venta, usuario..." style="width:100%;">',
+      '        </div>',
+      '        <div class="form-group">',
+      '          <label for="salesLogDateFrom"><i class="fas fa-calendar"></i> Desde</label>',
+      '          <input type="date" id="salesLogDateFrom" style="width:100%;">',
+      '        </div>',
+      '        <div class="form-group">',
+      '          <label for="salesLogDateTo"><i class="fas fa-calendar"></i> Hasta</label>',
+      '          <input type="date" id="salesLogDateTo" style="width:100%;">',
+      '        </div>',
+      '        <div class="form-group">',
+      '          <label for="salesLogMinAmount"><i class="fas fa-dollar-sign"></i> Monto mínimo</label>',
+      '          <input type="number" id="salesLogMinAmount" min="0" step="0.01" placeholder="0.00" style="width:100%;">',
+      '        </div>',
+      '        <div class="form-group">',
+      '          <label for="salesLogMaxAmount"><i class="fas fa-dollar-sign"></i> Monto máximo</label>',
+      '          <input type="number" id="salesLogMaxAmount" min="0" step="0.01" placeholder="0.00" style="width:100%;">',
+      '        </div>',
+      '        <div class="form-group" style="display:flex; align-items:flex-end;">',
+      '          <button type="button" class="btn btn-secondary btn-sm" id="salesLogClearFiltersBtn" style="width:100%;"><i class="fas fa-times"></i> Limpiar</button>',
+      '        </div>',
+      '      </div>',
+      '    </div>',
+      '    <div id="salesLogMessage" class="message-container"></div>',
       '    <div class="table-responsive">',
       '      <table class="data-table" id="salesTable">',
-      '        <thead><tr><th>Fecha</th><th>Usuario</th><th>Categoría</th><th>Subtotal</th><th>Descuento</th><th>Total</th></tr></thead>',
+      '        <thead>',
+      '          <tr>',
+      '            <th style="width:80px;">ID</th>',
+      '            <th style="width:160px;">Fecha y Hora</th>',
+      '            <th style="width:120px;">Usuario</th>',
+      '            <th style="width:100px; text-align:center;">Items</th>',
+      '            <th style="width:120px; text-align:right;">Subtotal</th>',
+      '            <th style="width:120px; text-align:right;">Descuento</th>',
+      '            <th style="width:120px; text-align:right;">Total</th>',
+      '            <th style="width:150px; text-align:center;">Acciones</th>',
+      '          </tr>',
+      '        </thead>',
       '        <tbody></tbody>',
       '      </table>',
+      '    </div>',
+      '    <div class="pagination-container" style="padding:16px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0;">',
+      '      <div style="color:#64748b; font-size:14px;">',
+      '        Mostrando <span id="salesLogShowingStart">0</span> a <span id="salesLogShowingEnd">0</span> de <span id="salesLogTotal">0</span> ventas',
+      '      </div>',
+      '      <div style="display:flex; gap:8px; align-items:center;">',
+      '        <button type="button" class="btn btn-secondary btn-sm" id="salesLogFirstBtn"><i class="fas fa-angle-double-left"></i></button>',
+      '        <button type="button" class="btn btn-secondary btn-sm" id="salesLogPrevBtn"><i class="fas fa-angle-left"></i> Anterior</button>',
+      '        <span style="padding:0 12px; color:#475569; font-weight:500;">Página <span id="salesLogCurrentPage">1</span> de <span id="salesLogTotalPages">1</span></span>',
+      '        <button type="button" class="btn btn-secondary btn-sm" id="salesLogNextBtn">Siguiente <i class="fas fa-angle-right"></i></button>',
+      '        <button type="button" class="btn btn-secondary btn-sm" id="salesLogLastBtn"><i class="fas fa-angle-double-right"></i></button>',
+      '      </div>',
+      '      <div style="display:flex; gap:8px; align-items:center;">',
+      '        <label for="salesLogPageSize" style="margin:0; color:#64748b; font-size:14px;">Mostrar:</label>',
+      '        <select id="salesLogPageSize" class="filter-select" style="width:80px;">',
+      '          <option value="10">10</option>',
+      '          <option value="20" selected>20</option>',
+      '          <option value="50">50</option>',
+      '          <option value="100">100</option>',
+      '        </select>',
+      '      </div>',
       '    </div>',
       '  </div>',
       '</div>'
@@ -2372,7 +2448,34 @@
   function initSalesModule() {
     setupSalesTabs();
     setupPOS();
+    initSalesLogControls();
     renderSalesLog();
+  }
+
+  // Funciones de manejo de mensajes para el módulo de ventas
+  function invSetMessage(containerId, type, message) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.className = `message-container ${type}`;
+    const icons = {
+      success: 'fa-check-circle',
+      error: 'fa-exclamation-triangle',
+      info: 'fa-circle-info',
+      warning: 'fa-exclamation-triangle'
+    };
+    container.innerHTML = `
+      <div class="message ${type}">
+        <i class="fas ${icons[type] || icons.info}"></i>
+        <span>${message}</span>
+      </div>
+    `;
+  }
+
+  function invClearMessage(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.className = 'message-container';
+    container.innerHTML = '';
   }
 
   function setupSalesTabs() {
@@ -2391,8 +2494,25 @@
     btnLog.onclick = () => { activate('log'); renderSalesLog(); };
   }
 
-  function setupPOS() {
-    const products = (DASHBOARD_DATA[role]?.productos?.list || DASHBOARD_DATA.admin?.productos?.list || []).map(p => ({ code: p.code, name: p.name }));
+  async function setupPOS() {
+    // Cargar productos desde API
+    let products = [];
+    try {
+      const response = await apiRequest(API_ENDPOINTS.productos);
+      if (response.success && Array.isArray(response.data)) {
+        products = response.data.map(p => ({
+          id: p.IdProducto,
+          code: p.Codigo,
+          name: p.Nombre,
+          price: parseFloat(p.PrecioVenta || 0),
+          discount: parseFloat(p.Descuento || 0) // ⭐ Porcentaje de descuento
+        }));
+      }
+    } catch (err) {
+      console.error('Error cargando productos:', err);
+      products = []; // Fallback a array vacío
+    }
+
     const input = document.getElementById('posProductInput');
     const box = document.getElementById('posProductResults');
     
@@ -2458,23 +2578,41 @@
         return;
       }
       tbody.innerHTML = cart.map((it, idx) => {
-        const subtotal = (it.price || 0) * it.qty;
+        const price = parseFloat(it.price || 0);
+        const effectivePrice = parseFloat(it.effectivePrice || it.price || 0);
+        const subtotal = effectivePrice * it.qty;
+        const hasDiscount = it.discount > 0;
+        
+        // Mostrar información de descuento si aplica
+        const priceDisplay = hasDiscount 
+          ? `<div style="display:flex; flex-direction:column; align-items:flex-end;">
+               <span style="text-decoration:line-through; color:#94a3b8; font-size:0.85em;">$${price.toFixed(2)}</span>
+               <span style="color:#10b981; font-weight:600;">$${effectivePrice.toFixed(2)}</span>
+               <small style="color:#10b981; font-size:0.75em;">${it.discount}% desc.</small>
+             </div>`
+          : `$${price.toFixed(2)}`;
+        
         return `<tr>
           <td>${it.code}</td>
           <td>${it.name}</td>
-          <td><input type=\"number\" class=\"cart-qty\" data-index=\"${idx}\" min=\"1\" value=\"${it.qty}\" style=\"width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px;\"></td>
-          <td></td>
-          <td>${subtotal.toFixed(2)}</td>
-          <td><button type=\"button\" class=\"btn btn-secondary btn-sm\" data-remove=\"${idx}\"><i class=\"fas fa-trash\"></i></button></td>
+          <td><input type="number" class="cart-qty" data-index="${idx}" min="1" value="${it.qty}" style="width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px;"></td>
+          <td>${priceDisplay}</td>
+          <td>$${subtotal.toFixed(2)}</td>
+          <td><button type="button" class="btn btn-secondary btn-sm" data-remove="${idx}"><i class="fas fa-trash"></i></button></td>
         </tr>`;
       }).join('');
       tbody.querySelectorAll('button[data-remove]')?.forEach(btn => {
         btn.addEventListener('click', () => {
           const i = parseInt(btn.getAttribute('data-remove'), 10);
-          if (!isNaN(i)) { cart.splice(i, 1); renderCart(); }
+          if (!isNaN(i)) { 
+            cart.splice(i, 1); 
+            renderCart();
+            invSetMessage('salesPOSMessage', 'info', 'Producto eliminado del carrito');
+            setTimeout(() => invClearMessage('salesPOSMessage'), 1500);
+          }
         });
       });
-      // Editar cantidad en lnea
+      // Editar cantidad en línea
       tbody.querySelectorAll('input.cart-qty')?.forEach(inp => {
         inp.addEventListener('change', () => {
           const i = parseInt(inp.getAttribute('data-index'), 10);
@@ -2490,7 +2628,12 @@
       updateTotals();
     }
 
-    function sumSubtotal() { return cart.reduce((acc, it) => acc + (it.price || 0) * it.qty, 0); }
+    function sumSubtotal() { 
+      return cart.reduce((acc, it) => {
+        const effectivePrice = parseFloat(it.effectivePrice || it.price || 0);
+        return acc + (effectivePrice * it.qty);
+      }, 0); 
+    }
     function updateTotals() {
       const subtotal = sumSubtotal();
       const disc = parseFloat(document.getElementById('salesDiscount')?.value || '0') || 0;
@@ -2503,44 +2646,538 @@
 
     document.getElementById('salesDiscount')?.addEventListener('input', updateTotals);
 
-    function addFromQtyEnter() {
+    // Función para agregar producto al carrito
+    function addToCart() {
       const val = (input?.value || '').trim();
-      const qty = parseInt(document.getElementById('posQtyInput')?.value || '0', 10);
-      if (!val) return invSetMessage('salesPOSMessage', 'error', 'Selecciona un producto.');
-      if (!qty || qty <= 0) return invSetMessage('salesPOSMessage', 'error', 'Ingresa una cantidad vlida.');
+      const qtyInput = document.getElementById('posQtyInput');
+      const qty = parseInt(qtyInput?.value || '0', 10);
+      
+      if (!val) return invSetMessage('salesPOSMessage', 'error', 'Selecciona un producto del listado.');
+      if (!qty || qty <= 0) return invSetMessage('salesPOSMessage', 'error', 'Ingresa una cantidad válida.');
+      
       const code = val.split('|')[0].trim();
-      const found = products.find(p => p.code === code) || { code, name: val.replace(/^.*\|/, '').trim() };
-      cart.push({ code: found.code, name: found.name, qty, price: 0 });
-      invClearMessage('salesPOSMessage');
+      const found = products.find(p => p.code === code);
+      
+      if (!found) {
+        return invSetMessage('salesPOSMessage', 'error', 'Producto no encontrado. Selecciona uno de la lista.');
+      }
+      
+      // Calcular descuento
+      const discountAmount = found.price * (found.discount / 100);
+      const effectivePrice = found.price - discountAmount;
+      
+      // Verificar si el producto ya está en el carrito
+      const existingIndex = cart.findIndex(item => item.id === found.id);
+      
+      if (existingIndex >= 0) {
+        // Si ya existe, sumar la cantidad
+        cart[existingIndex].qty += qty;
+        invSetMessage('salesPOSMessage', 'success', `Cantidad actualizada: ${cart[existingIndex].qty} unidades de ${found.name}`);
+      } else {
+        // Si no existe, agregarlo nuevo con precio calculado con descuento
+        cart.push({ 
+          id: found.id, 
+          code: found.code, 
+          name: found.name, 
+          qty, 
+          price: found.price,              // Precio original
+          discount: found.discount,         // Porcentaje de descuento
+          discountAmount: discountAmount,   // Monto del descuento por unidad
+          effectivePrice: effectivePrice    // Precio con descuento aplicado
+        });
+        invSetMessage('salesPOSMessage', 'success', `Producto agregado: ${found.name}`);
+      }
+      
       renderCart();
-      const q = document.getElementById('posQtyInput'); if (q) q.value = '';
+      
+      // Limpiar campos
+      if (qtyInput) qtyInput.value = '1';
       input.value = '';
+      input.focus();
+      
+      // Limpiar mensaje después de 2 segundos
+      setTimeout(() => invClearMessage('salesPOSMessage'), 2000);
     }
+
+    // Evento del botón "Agregar al carrito"
+    document.getElementById('posAddToCartBtn')?.addEventListener('click', addToCart);
+    
+    // Mantener funcionalidad de Enter en cantidad
     document.getElementById('posQtyInput')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); addFromQtyEnter(); }
+      if (e.key === 'Enter') { 
+        e.preventDefault(); 
+        addToCart();
+      }
+    });
+    
+    // También permitir Enter en el input de producto
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const qtyInput = document.getElementById('posQtyInput');
+        if (qtyInput) qtyInput.focus();
+      }
     });
 
-    document.getElementById('posClearBtn')?.addEventListener('click', () => { cart.splice(0, cart.length); renderCart(); invClearMessage('salesPOSMessage'); });
+    document.getElementById('posClearBtn')?.addEventListener('click', () => { 
+      if (cart.length > 0) {
+        cart.splice(0, cart.length); 
+        renderCart(); 
+        invSetMessage('salesPOSMessage', 'info', 'Carrito vaciado');
+        setTimeout(() => invClearMessage('salesPOSMessage'), 1500);
+      }
+    });
 
-    document.getElementById('posCheckoutBtn')?.addEventListener('click', () => {
+    document.getElementById('posCheckoutBtn')?.addEventListener('click', async () => {
       if (!cart.length) return invSetMessage('salesPOSMessage', 'error', 'Agrega productos a la venta.');
-      // Backend registrar la venta; aqu solo UI
-      cart.splice(0, cart.length);
-      renderCart();
-      invSetMessage('salesPOSMessage', 'success', 'Venta realizada.');
-      try { showToast('Venta realizada', 'success'); } catch { }
+      
+      // Preparar detalle de venta con precios efectivos y descuentos
+      const detalle = cart.map(item => ({
+        IdProducto: item.id,
+        Cantidad: item.qty,
+        PrecioUnitario: item.price || 0,                      // Precio original
+        Descuento: parseFloat(item.discountAmount || 0)       // Monto del descuento por unidad
+      }));
+      
+      const descuentoTotal = parseFloat(document.getElementById('salesDiscount')?.value || '0') || 0;
+      const observacion = document.getElementById('salesCustomer')?.value || 'Venta desde POS';
+      
+      // Obtener usuario actual
+      const currentUser = profileState?.usuario || 'sistema';
+      
+      try {
+        invSetMessage('salesPOSMessage', 'info', 'Procesando venta...');
+        
+        const response = await apiRequest(API_ENDPOINTS.ventas, {
+          method: 'POST',
+          body: {
+            usuario: currentUser,
+            detalle: detalle,
+            observacion: observacion
+          }
+        });
+        
+        if (response.success) {
+          cart.splice(0, cart.length);
+          renderCart();
+          invSetMessage('salesPOSMessage', 'success', response.message || 'Venta realizada exitosamente.');
+          
+          // Limpiar campos
+          document.getElementById('salesCustomer').value = '';
+          document.getElementById('salesDiscount').value = '0';
+          
+          try { showToast('Venta registrada con éxito', 'success'); } catch { }
+          
+          // Recargar bitácora si está visible
+          const logContent = document.getElementById('salesLogContent');
+          if (logContent && logContent.classList.contains('active')) {
+            renderSalesLog();
+          }
+        } else {
+          invSetMessage('salesPOSMessage', 'error', response.message || 'Error al procesar la venta');
+        }
+      } catch (error) {
+        console.error('Error procesando venta:', error);
+        invSetMessage('salesPOSMessage', 'error', 'Error de conexión al procesar la venta');
+      }
     });
 
     // Render inicial del carrito
     renderCart();
   }
 
-  function renderSalesLog() {
+  // Estado de paginación y filtros para la bitácora de ventas
+  const salesLogState = {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    filters: {
+      search: '',
+      dateFrom: '',
+      dateTo: '',
+      minAmount: null,
+      maxAmount: null
+    }
+  };
+
+  function initSalesLogControls() {
+    // Botón de filtros
+    const filtersBtn = document.getElementById('salesLogFiltersBtn');
+    const filtersContainer = document.getElementById('salesLogFiltersContainer');
+    if (filtersBtn && filtersContainer) {
+      filtersBtn.onclick = () => {
+        const isVisible = filtersContainer.style.display !== 'none';
+        filtersContainer.style.display = isVisible ? 'none' : 'block';
+      };
+    }
+
+    // Botón de actualizar
+    const refreshBtn = document.getElementById('salesLogRefreshBtn');
+    if (refreshBtn) {
+      refreshBtn.onclick = () => renderSalesLog();
+    }
+
+    // Input de búsqueda con debounce
+    const searchInput = document.getElementById('salesLogSearchInput');
+    if (searchInput) {
+      let searchTimeout;
+      searchInput.oninput = () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          salesLogState.filters.search = searchInput.value.trim();
+          salesLogState.page = 1;
+          renderSalesLog();
+        }, 500);
+      };
+    }
+
+    // Filtros de fecha
+    const dateFromInput = document.getElementById('salesLogDateFrom');
+    const dateToInput = document.getElementById('salesLogDateTo');
+    if (dateFromInput) {
+      dateFromInput.onchange = () => {
+        salesLogState.filters.dateFrom = dateFromInput.value;
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+    if (dateToInput) {
+      dateToInput.onchange = () => {
+        salesLogState.filters.dateTo = dateToInput.value;
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+
+    // Filtros de monto
+    const minAmountInput = document.getElementById('salesLogMinAmount');
+    const maxAmountInput = document.getElementById('salesLogMaxAmount');
+    if (minAmountInput) {
+      minAmountInput.onchange = () => {
+        salesLogState.filters.minAmount = minAmountInput.value ? parseFloat(minAmountInput.value) : null;
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+    if (maxAmountInput) {
+      maxAmountInput.onchange = () => {
+        salesLogState.filters.maxAmount = maxAmountInput.value ? parseFloat(maxAmountInput.value) : null;
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+
+    // Botón de limpiar filtros
+    const clearFiltersBtn = document.getElementById('salesLogClearFiltersBtn');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.onclick = () => {
+        // Limpiar estado de filtros
+        salesLogState.filters = {
+          search: '',
+          dateFrom: '',
+          dateTo: '',
+          minAmount: null,
+          maxAmount: null
+        };
+        salesLogState.page = 1;
+
+        // Limpiar inputs
+        if (searchInput) searchInput.value = '';
+        if (dateFromInput) dateFromInput.value = '';
+        if (dateToInput) dateToInput.value = '';
+        if (minAmountInput) minAmountInput.value = '';
+        if (maxAmountInput) maxAmountInput.value = '';
+
+        renderSalesLog();
+      };
+    }
+
+    // Selector de tamaño de página
+    const pageSizeSelect = document.getElementById('salesLogPageSize');
+    if (pageSizeSelect) {
+      pageSizeSelect.onchange = () => {
+        salesLogState.pageSize = parseInt(pageSizeSelect.value) || 20;
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+
+    // Botones de paginación
+    const firstBtn = document.getElementById('salesLogFirstBtn');
+    const prevBtn = document.getElementById('salesLogPrevBtn');
+    const nextBtn = document.getElementById('salesLogNextBtn');
+    const lastBtn = document.getElementById('salesLogLastBtn');
+
+    if (firstBtn) {
+      firstBtn.onclick = () => {
+        salesLogState.page = 1;
+        renderSalesLog();
+      };
+    }
+
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        if (salesLogState.page > 1) {
+          salesLogState.page--;
+          renderSalesLog();
+        }
+      };
+    }
+
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        const totalPages = Math.ceil(salesLogState.total / salesLogState.pageSize) || 1;
+        if (salesLogState.page < totalPages) {
+          salesLogState.page++;
+          renderSalesLog();
+        }
+      };
+    }
+
+    if (lastBtn) {
+      lastBtn.onclick = () => {
+        const totalPages = Math.ceil(salesLogState.total / salesLogState.pageSize) || 1;
+        salesLogState.page = totalPages;
+        renderSalesLog();
+      };
+    }
+  }
+
+  async function renderSalesLog() {
     const tbody = document.querySelector('#salesTable tbody');
     if (!tbody) return;
-    // Backend poblar esta tabla; placeholder de diseo
-    tbody.innerHTML = '<tr><td colspan="6"><p class="empty-state">Conectado al backend prximamente.</p></td></tr>';
+    
+    try {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin" style="font-size:24px; color:#3b82f6;"></i><p style="margin-top:12px; color:#64748b;">Cargando ventas...</p></td></tr>';
+      
+      // Construir query params
+      const params = new URLSearchParams({
+        page: salesLogState.page.toString(),
+        limit: salesLogState.pageSize.toString()
+      });
+
+      // Agregar filtros si están definidos
+      if (salesLogState.filters.search) {
+        params.append('search', salesLogState.filters.search);
+      }
+      if (salesLogState.filters.dateFrom) {
+        params.append('fechaDesde', salesLogState.filters.dateFrom);
+      }
+      if (salesLogState.filters.dateTo) {
+        params.append('fechaHasta', salesLogState.filters.dateTo);
+      }
+      if (salesLogState.filters.minAmount !== null) {
+        params.append('montoMin', salesLogState.filters.minAmount.toString());
+      }
+      if (salesLogState.filters.maxAmount !== null) {
+        params.append('montoMax', salesLogState.filters.maxAmount.toString());
+      }
+
+      const response = await apiRequest(`${API_ENDPOINTS.ventas}?${params.toString()}`);
+      
+      if (!response.success || !response.data) {
+        invSetMessage('salesLogMessage', 'error', 'No se pudieron cargar las ventas');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px;"><i class="fas fa-exclamation-triangle" style="font-size:24px; color:#ef4444;"></i><p style="margin-top:12px; color:#64748b;">No se pudieron cargar las ventas.</p></td></tr>';
+        return;
+      }
+      
+      const ventas = response.data.ventas || [];
+      salesLogState.total = response.data.total || 0;
+      
+      // Actualizar información de paginación
+      updateSalesLogPagination();
+
+      if (ventas.length === 0) {
+        invClearMessage('salesLogMessage');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px;"><i class="fas fa-inbox" style="font-size:24px; color:#94a3b8;"></i><p style="margin-top:12px; color:#64748b;">No hay ventas registradas con los filtros seleccionados.</p></td></tr>';
+        return;
+      }
+
+      invClearMessage('salesLogMessage');
+      
+      tbody.innerHTML = ventas.map(venta => {
+        const subtotal = parseFloat(venta.Subtotal || 0);
+        const descuento = parseFloat(venta.DescuentoTotal || 0);
+        const total = parseFloat(venta.Total || 0);
+        const items = parseInt(venta.CantidadItems || 0);
+        
+        return `
+          <tr data-venta-id="${venta.IdVenta}">
+            <td style="font-weight:600; color:#1e293b;">#${venta.IdVenta}</td>
+            <td style="font-size:13px; color:#475569;">${formatDateTimeSafe(venta.FechaVenta)}</td>
+            <td><span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;"><i class="fas fa-user"></i> ${escapeHtml(venta.Usuario || 'N/A')}</span></td>
+            <td style="text-align:center;">
+              <span style="display:inline-block; background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:12px; font-weight:600; font-size:13px;">
+                ${items} ${items === 1 ? 'item' : 'items'}
+              </span>
+            </td>
+            <td style="text-align:right; font-weight:500; color:#475569;">$${subtotal.toFixed(2)}</td>
+            <td style="text-align:right; font-weight:500; color:${descuento > 0 ? '#10b981' : '#94a3b8'};">${descuento > 0 ? '-' : ''}$${descuento.toFixed(2)}</td>
+            <td style="text-align:right; font-weight:700; color:#1e293b; font-size:15px;">$${total.toFixed(2)}</td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.showSaleDetailFromLog(${venta.IdVenta})" style="padding:6px 12px;">
+                <i class="fas fa-eye"></i> Ver detalle
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+    } catch (error) {
+      console.error('Error cargando ventas:', error);
+      invSetMessage('salesLogMessage', 'error', 'Error al cargar las ventas: ' + (error.message || 'Error desconocido'));
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px;"><i class="fas fa-exclamation-triangle" style="font-size:24px; color:#ef4444;"></i><p style="margin-top:12px; color:#64748b;">Error al cargar ventas.</p></td></tr>';
+    }
   }
+
+  function updateSalesLogPagination() {
+    const totalPages = Math.ceil(salesLogState.total / salesLogState.pageSize) || 1;
+    const start = salesLogState.total === 0 ? 0 : ((salesLogState.page - 1) * salesLogState.pageSize) + 1;
+    const end = Math.min(salesLogState.page * salesLogState.pageSize, salesLogState.total);
+
+    // Actualizar textos
+    const startSpan = document.getElementById('salesLogShowingStart');
+    const endSpan = document.getElementById('salesLogShowingEnd');
+    const totalSpan = document.getElementById('salesLogTotal');
+    const currentPageSpan = document.getElementById('salesLogCurrentPage');
+    const totalPagesSpan = document.getElementById('salesLogTotalPages');
+
+    if (startSpan) startSpan.textContent = start;
+    if (endSpan) endSpan.textContent = end;
+    if (totalSpan) totalSpan.textContent = salesLogState.total;
+    if (currentPageSpan) currentPageSpan.textContent = salesLogState.page;
+    if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+
+    // Habilitar/deshabilitar botones
+    const firstBtn = document.getElementById('salesLogFirstBtn');
+    const prevBtn = document.getElementById('salesLogPrevBtn');
+    const nextBtn = document.getElementById('salesLogNextBtn');
+    const lastBtn = document.getElementById('salesLogLastBtn');
+
+    const isFirstPage = salesLogState.page === 1;
+    const isLastPage = salesLogState.page === totalPages;
+
+    if (firstBtn) firstBtn.disabled = isFirstPage;
+    if (prevBtn) prevBtn.disabled = isFirstPage;
+    if (nextBtn) nextBtn.disabled = isLastPage;
+    if (lastBtn) lastBtn.disabled = isLastPage;
+  }
+
+  async function showSaleDetail(idVenta) {
+    try {
+      const response = await apiRequest(`${API_ENDPOINTS.ventas}/${idVenta}`);
+      
+      if (!response.success || !response.data) {
+        invSetMessage('salesLogMessage', 'error', 'No se pudo cargar el detalle de la venta');
+        return;
+      }
+      
+      const { cabecera, items } = response.data;
+      
+      const subtotal = parseFloat(cabecera.Subtotal || 0);
+      const descuentoTotal = parseFloat(cabecera.DescuentoTotal || 0);
+      const total = parseFloat(cabecera.Total || 0);
+      
+      const itemsHtml = items.map(item => {
+        const precioUnitario = parseFloat(item.PrecioUnitario || 0);
+        const descuento = parseFloat(item.Descuento || 0);
+        const cantidad = parseInt(item.Cantidad || 0);
+        const subtotalItem = (precioUnitario - descuento) * cantidad;
+        
+        return `
+          <tr>
+            <td style="font-weight:500;">${escapeHtml(item.Codigo || 'N/A')}</td>
+            <td>${escapeHtml(item.NombreProducto || 'N/A')}</td>
+            <td style="text-align:center;">${cantidad}</td>
+            <td style="text-align:right;">$${precioUnitario.toFixed(2)}</td>
+            <td style="text-align:right; color:${descuento > 0 ? '#10b981' : '#94a3b8'};">
+              ${descuento > 0 ? '-' : ''}$${descuento.toFixed(2)}
+            </td>
+            <td style="text-align:right; font-weight:600;">$${subtotalItem.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+      
+      const content = `
+        <div class="sale-detail-content" style="padding:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid #e2e8f0;">
+            <div>
+              <h4 style="margin:0 0 8px 0; color:#1e293b; font-size:24px;">Venta #${cabecera.IdVenta}</h4>
+              <p style="margin:0; color:#64748b; font-size:14px;"><i class="fas fa-calendar-alt"></i> ${formatDateTimeSafe(cabecera.FechaVenta)}</p>
+            </div>
+            <div style="text-align:right;">
+              <p style="margin:0 0 4px 0; color:#64748b; font-size:13px;">Usuario</p>
+              <span class="badge" style="background:#3b82f6; color:#fff; padding:6px 12px; border-radius:6px; font-size:14px;">
+                <i class="fas fa-user"></i> ${escapeHtml(cabecera.Usuario || 'N/A')}
+              </span>
+            </div>
+          </div>
+          
+          ${cabecera.Observacion ? `
+            <div style="margin-bottom:20px; padding:12px; background:#f8fafc; border-left:4px solid #3b82f6; border-radius:4px;">
+              <p style="margin:0; color:#475569; font-size:14px;"><strong>Observación:</strong> ${escapeHtml(cabecera.Observacion)}</p>
+            </div>
+          ` : ''}
+          
+          <h5 style="margin:0 0 12px 0; color:#475569; font-size:16px; font-weight:600;">
+            <i class="fas fa-shopping-cart"></i> Productos (${items.length} ${items.length === 1 ? 'item' : 'items'})
+          </h5>
+          <div style="overflow-x:auto; margin-bottom:20px;">
+            <table class="data-table" style="width:100%; margin:0;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="padding:12px;">Código</th>
+                  <th style="padding:12px;">Producto</th>
+                  <th style="padding:12px; text-align:center;">Cantidad</th>
+                  <th style="padding:12px; text-align:right;">Precio Unit.</th>
+                  <th style="padding:12px; text-align:right;">Descuento</th>
+                  <th style="padding:12px; text-align:right;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="border-top:2px solid #e2e8f0; padding-top:16px;">
+            <div style="display:flex; justify-content:flex-end; gap:80px; font-size:16px;">
+              <div style="text-align:right;">
+                <p style="margin:0 0 8px 0; color:#64748b;">Subtotal:</p>
+                ${descuentoTotal > 0 ? `<p style="margin:0 0 8px 0; color:#10b981;">Descuento:</p>` : ''}
+                <p style="margin:0; color:#1e293b; font-weight:700; font-size:18px;">Total:</p>
+              </div>
+              <div style="text-align:right;">
+                <p style="margin:0 0 8px 0; color:#475569; font-weight:500;">$${subtotal.toFixed(2)}</p>
+                ${descuentoTotal > 0 ? `<p style="margin:0 0 8px 0; color:#10b981; font-weight:500;">-$${descuentoTotal.toFixed(2)}</p>` : ''}
+                <p style="margin:0; color:#1e293b; font-weight:700; font-size:20px;">$${total.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      modalManager.showModal({
+        title: 'Detalle de Venta',
+        content: content,
+        actions: [
+          {
+            label: 'Cerrar',
+            className: 'btn-secondary',
+            action: () => modalManager.closeModal()
+          }
+        ],
+        size: 'large'
+      });
+      
+    } catch (error) {
+      console.error('Error obteniendo detalle de venta:', error);
+      invSetMessage('salesLogMessage', 'error', 'Error al cargar el detalle: ' + (error.message || 'Error desconocido'));
+    }
+  }
+
+  // Exponer función globalmente para onclick
+  window.showSaleDetailFromLog = showSaleDetail;
 
   // ============================================================================
   // SECCIÓN: MÓDULO DE PRODUCTOS (LÍNEAS 2378-3567)
@@ -4489,33 +5126,46 @@
     });
   }
 
-  // Obtiene productos del dataset que pertenecen a una categora
+  // Obtiene productos del dataset que pertenecen a una categoría
   async function getProductsForCategory(categoryName) {
+    console.log('=== DEBUG: getProductsForCategory ===');
+    console.log('Buscando productos con categoría:', categoryName);
+    
     try {
       // Cargar todos los productos desde API
       const response = await apiRequest(`${API_ENDPOINTS.productos}?limit=100`);
+      console.log('Respuesta de API productos:', response);
       
       if (!response.success || !Array.isArray(response.data)) {
         console.error('Error al cargar productos:', response);
         return [];
       }
 
+      console.log('Total productos cargados:', response.data.length);
+      
       // Filtrar productos que tengan la categoría especificada
       const name = (categoryName || '').toString().toLowerCase().trim();
-      return response.data
-        .filter(p => {
-          const categorias = Array.isArray(p.categorias) ? p.categorias : [];
-          return categorias.some(cat => cat.toString().toLowerCase().trim() === name);
-        })
-        .map(p => ({
-          codigo: p.Codigo,
-          nombre: p.Nombre,
-          categorias: Array.isArray(p.categorias) ? p.categorias : [],
-          precioCosto: p.PrecioCosto,
-          precioVenta: p.PrecioVenta,
-          cantidad: p.Cantidad || 0,
-          estado: p.Estado ? 'Activo' : 'Inactivo'
-        }));
+      console.log('Filtrando por nombre (lowercase):', name);
+      
+      const filtered = response.data.filter(p => {
+        const categorias = Array.isArray(p.categorias) ? p.categorias : [];
+        console.log(`Producto ${p.Codigo}: categorías =`, categorias);
+        const match = categorias.some(cat => cat.toString().toLowerCase().trim() === name);
+        console.log(`  Match: ${match}`);
+        return match;
+      });
+      
+      console.log('Productos filtrados:', filtered.length);
+      
+      return filtered.map(p => ({
+        codigo: p.Codigo,
+        nombre: p.Nombre,
+        categorias: Array.isArray(p.categorias) ? p.categorias : [],
+        precioCosto: p.PrecioCosto,
+        precioVenta: p.PrecioVenta,
+        cantidad: p.Cantidad || 0,
+        estado: p.Estado ? 'Activo' : 'Inactivo'
+      }));
     } catch (error) {
       console.error('Error en getProductsForCategory:', error);
       return [];

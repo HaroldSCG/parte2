@@ -28,7 +28,7 @@ function generateCode(nombre) {
   return `${base}-${suffix}`;
 }
 
-async function createProducto({ codigo, nombre, categorias = null, precioCosto, precioVenta, cantidad = 0, usuarioEjecutor = 'sistema' }) {
+async function createProducto({ codigo, nombre, descripcion, categorias = null, precioCosto, precioVenta, descuento = 0, cantidad = 0, usuarioEjecutor = 'sistema' }) {
   const finalCode = (codigo && typeof codigo === 'string' && codigo.trim()) ? codigo.trim() : generateCode(nombre);
   const p = await getPool();
 
@@ -41,14 +41,20 @@ async function createProducto({ codigo, nombre, categorias = null, precioCosto, 
     throw e;
   }
 
+  // Validar descuento
+  const descuentoVal = Number(descuento) || 0;
+  if (descuentoVal < 0 || descuentoVal > 100) {
+    throw new Error('El descuento debe estar entre 0 y 100');
+  }
+
   // Insertar en com.tbProducto (sin columna Categorias ni Cantidad)
   const req = p.request();
   req.input('Nombre', sql.VarChar(120), nombre);
   req.input('Codigo', sql.VarChar(30), finalCode);
-  req.input('Descripcion', sql.VarChar(400), null); // Opcional
+  req.input('Descripcion', sql.VarChar(400), descripcion || null); // Ahora recibe la descripción
   req.input('PrecioCosto', sql.Decimal(10, 2), Number(precioCosto));
   req.input('PrecioVenta', sql.Decimal(10, 2), Number(precioVenta));
-  req.input('Descuento', sql.Decimal(6, 2), 0);
+  req.input('Descuento', sql.Decimal(6, 2), descuentoVal); // ⭐ Ahora usa el valor recibido
   
   const insertResult = await req.query(`
     INSERT INTO com.tbProducto (Nombre, Codigo, Descripcion, PrecioCosto, PrecioVenta, Descuento)
@@ -147,8 +153,22 @@ async function listProductos({ page = 1, limit = 10, search = '', estado = '' })
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `)).recordset;
 
+  // Normalizar categorías de string a array para cada producto
+  const data = rows.map(row => ({
+    IdProducto: row.IdProducto,
+    Codigo: row.Codigo,
+    Nombre: row.Nombre,
+    Categorias: (row.Categorias && typeof row.Categorias === 'string')
+      ? row.Categorias.split(/[;|,]/).map(s => s.trim()).filter(Boolean)
+      : [],
+    PrecioCosto: row.PrecioCosto,
+    PrecioVenta: row.PrecioVenta,
+    Cantidad: row.Cantidad,
+    Estado: row.Estado
+  }));
+
   return {
-    data: rows,
+    data,
     pagination: {
       currentPage: pageNum,
       itemsPerPage: limitNum,
@@ -185,7 +205,7 @@ async function getProductoByCodigo(codigo) {
   };
 }
 
-async function updateProductoByCodigo({ codigo, nombre, precioCosto, precioVenta, cantidad, categorias }) {
+async function updateProductoByCodigo({ codigo, nombre, descripcion, precioCosto, precioVenta, descuento, cantidad, categorias }) {
   const p = await getPool();
   const code = String(codigo || '').trim();
   
@@ -206,6 +226,10 @@ async function updateProductoByCodigo({ codigo, nombre, precioCosto, precioVenta
     setParts.push('Nombre = @Nombre'); 
     reqUpd.input('Nombre', sql.VarChar(120), nombre); 
   }
+  if (typeof descripcion === 'string') {
+    setParts.push('Descripcion = @Descripcion');
+    reqUpd.input('Descripcion', sql.VarChar(400), descripcion || null);
+  }
   if (precioCosto != null) { 
     setParts.push('PrecioCosto = @PrecioCosto'); 
     reqUpd.input('PrecioCosto', sql.Decimal(10, 2), Number(precioCosto)); 
@@ -213,6 +237,14 @@ async function updateProductoByCodigo({ codigo, nombre, precioCosto, precioVenta
   if (precioVenta != null) { 
     setParts.push('PrecioVenta = @PrecioVenta'); 
     reqUpd.input('PrecioVenta', sql.Decimal(10, 2), Number(precioVenta)); 
+  }
+  if (descuento != null) {
+    const descuentoVal = Number(descuento);
+    if (descuentoVal < 0 || descuentoVal > 100) {
+      throw new Error('El descuento debe estar entre 0 y 100');
+    }
+    setParts.push('Descuento = @Descuento');
+    reqUpd.input('Descuento', sql.Decimal(6, 2), descuentoVal);
   }
 
   if (setParts.length) {

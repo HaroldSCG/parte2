@@ -41,11 +41,12 @@ async function updateProducto(req, res) {
   try {
     const { codigo } = req.params;
     if (!codigo) return res.status(400).json({ success: false, message: 'Código requerido' });
-    const { nombre, precioCosto, precioVenta, cantidad, categorias } = req.body || {};
+    const { nombre, descripcion, precioCosto, precioVenta, descuento, cantidad, categorias } = req.body || {};
 
     // Validaciones básicas
     const updates = {};
     if (typeof nombre === 'string') updates.nombre = nombre;
+    if (typeof descripcion === 'string') updates.descripcion = descripcion;
     if (precioCosto != null) {
       const v = Number(precioCosto); if (!Number.isFinite(v) || v < 0) return res.status(400).json({ success:false, message:'precioCosto inválido' });
       updates.precioCosto = v;
@@ -53,6 +54,13 @@ async function updateProducto(req, res) {
     if (precioVenta != null) {
       const v = Number(precioVenta); if (!Number.isFinite(v) || v < 0) return res.status(400).json({ success:false, message:'precioVenta inválido' });
       updates.precioVenta = v;
+    }
+    if (descuento != null) {
+      const v = Number(descuento); 
+      if (!Number.isFinite(v) || v < 0 || v > 100) {
+        return res.status(400).json({ success:false, message:'descuento debe estar entre 0 y 100' });
+      }
+      updates.descuento = v;
     }
     if (cantidad != null) {
       const v = Number(cantidad); if (!Number.isInteger(v) || v < 0) return res.status(400).json({ success:false, message:'cantidad inválida' });
